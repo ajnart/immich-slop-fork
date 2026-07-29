@@ -23,7 +23,9 @@ class _ActionWidget extends ConsumerWidget {
     try {
       await action.onAction(scope);
     } catch (error, stackTrace) {
-      handleError(scope.context, stack: stackTrace, description: 'Action failed: ${action.runtimeType}');
+      if (scope.context.mounted) {
+        handleError(scope.context, stack: stackTrace, description: 'Action failed: ${action.runtimeType}');
+      }
     }
   }
 

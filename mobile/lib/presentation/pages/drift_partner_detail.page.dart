@@ -72,12 +72,14 @@ class _InfoBoxState extends ConsumerState<_InfoBox> {
       });
     } catch (error, stack) {
       dPrint(() => "Failed to toggle in timeline: $error $stack");
-      ImmichToast.show(
-        context: context,
-        toastType: ToastType.error,
-        durationInSecond: 1,
-        msg: "Failed to toggle the timeline setting",
-      );
+      if (mounted) {
+        ImmichToast.show(
+          context: context,
+          toastType: ToastType.error,
+          durationInSecond: 1,
+          msg: "Failed to toggle the timeline setting",
+        );
+      }
       return;
     }
   }

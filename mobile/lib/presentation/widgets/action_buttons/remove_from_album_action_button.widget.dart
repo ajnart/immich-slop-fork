@@ -36,12 +36,11 @@ class RemoveFromAlbumActionButton extends ConsumerWidget {
     final result = await ref.read(actionProvider.notifier).removeFromAlbum(source, albumId);
     ref.read(multiSelectProvider.notifier).reset();
 
-    final successMessage = 'remove_from_album_action_prompt'.t(
-      context: context,
-      args: {'count': result.count.toString()},
-    );
-
     if (context.mounted) {
+      final successMessage = 'remove_from_album_action_prompt'.t(
+        context: context,
+        args: {'count': result.count.toString()},
+      );
       ImmichToast.show(
         context: context,
         msg: result.success ? successMessage : 'scaffold_body_error_occurred'.t(context: context),

@@ -46,7 +46,9 @@ class DriftAlbumOptionsPage extends HookConsumerWidget {
     void leaveAlbum() async {
       try {
         await ref.read(remoteAlbumProvider.notifier).leaveAlbum(album.id, userId: userId);
-        unawaited(context.navigateTo(const DriftAlbumsRoute()));
+        if (context.mounted) {
+          unawaited(context.navigateTo(const DriftAlbumsRoute()));
+        }
       } catch (_) {
         showErrorMessage();
       }
@@ -73,7 +75,7 @@ class DriftAlbumOptionsPage extends HookConsumerWidget {
       try {
         await ref.read(remoteAlbumProvider.notifier).addUsers(album.id, newUsers);
 
-        if (newUsers.isNotEmpty) {
+        if (newUsers.isNotEmpty && context.mounted) {
           ImmichToast.show(
             context: context,
             msg: "users_added_to_album_count".t(context: context, args: {'count': newUsers.length}),
@@ -83,11 +85,13 @@ class DriftAlbumOptionsPage extends HookConsumerWidget {
 
         ref.invalidate(remoteAlbumSharedUsersProvider(album.id));
       } catch (e) {
-        ImmichToast.show(
-          context: context,
-          msg: "Failed to add users to album: ${e.toString()}",
-          toastType: ToastType.error,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: "Failed to add users to album: ${e.toString()}",
+            toastType: ToastType.error,
+          );
+        }
       }
     }
 

@@ -141,19 +141,21 @@ class AdvancedSettings extends HookConsumerWidget {
           try {
             clearedBytes = await remoteImageApi.clearCache();
           } catch (e) {
-            context.scaffoldMessenger.showSnackBar(
-              SnackBar(
-                duration: const Duration(seconds: 2),
-                content: Text(
-                  "advanced_settings_clear_image_cache_error".tr(),
-                  style: context.textTheme.bodyLarge?.copyWith(color: context.themeData.colorScheme.error),
+            if (context.mounted) {
+              context.scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  duration: const Duration(seconds: 2),
+                  content: Text(
+                    "advanced_settings_clear_image_cache_error".tr(),
+                    style: context.textTheme.bodyLarge?.copyWith(color: context.themeData.colorScheme.error),
+                  ),
                 ),
-              ),
-            );
+              );
+            }
             return;
           }
 
-          if (clearedBytes < 0) {
+          if (clearedBytes < 0 || !context.mounted) {
             return;
           }
 

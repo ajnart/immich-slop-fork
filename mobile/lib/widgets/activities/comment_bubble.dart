@@ -35,7 +35,7 @@ class CommentBubble extends ConsumerWidget {
     Future<void> openAssetViewer() async {
       final activityService = ref.read(activityServiceProvider);
       final route = await activityService.buildAssetViewerRoute(activity.assetId!, ref);
-      if (route != null) {
+      if (route != null && context.mounted) {
         await context.pushRoute(route);
       }
     }

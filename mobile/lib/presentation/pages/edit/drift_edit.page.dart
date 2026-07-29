@@ -59,10 +59,14 @@ class _DriftEditImagePageState extends ConsumerState<DriftEditImagePage> with Ti
 
     try {
       await widget.applyEdits(edits);
-      ImmichToast.show(context: context, msg: 'success'.tr(), toastType: ToastType.success);
-      Navigator.of(context).pop();
+      if (mounted) {
+        ImmichToast.show(context: context, msg: 'success'.tr(), toastType: ToastType.success);
+        Navigator.of(context).pop();
+      }
     } catch (e) {
-      ImmichToast.show(context: context, msg: 'error_title'.tr(), toastType: ToastType.error);
+      if (mounted) {
+        ImmichToast.show(context: context, msg: 'error_title'.tr(), toastType: ToastType.error);
+      }
     } finally {
       ref.read(editorStateProvider.notifier).setIsEditing(false);
     }
@@ -99,7 +103,7 @@ class _DriftEditImagePageState extends ConsumerState<DriftEditImagePage> with Ti
           return;
         }
         final shouldDiscard = await _showDiscardChangesDialog() ?? false;
-        if (shouldDiscard && mounted) {
+        if (shouldDiscard && context.mounted) {
           Navigator.of(context).pop();
         }
       },

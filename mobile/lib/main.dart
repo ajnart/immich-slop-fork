@@ -161,7 +161,7 @@ class ImmichAppState extends ConsumerState<ImmichApp> with WidgetsBindingObserve
     if (Platform.isAndroid) {
       // Android 8 does not support transparent app bars
       final info = await DeviceInfoPlugin().androidInfo;
-      if (info.version.sdkInt <= 26) {
+      if (info.version.sdkInt <= 26 && mounted) {
         overlayStyle = context.isDarkTheme ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light;
       }
     }

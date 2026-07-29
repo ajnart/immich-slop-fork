@@ -63,6 +63,10 @@ class ChangePasswordForm extends HookConsumerWidget {
                             await ref.read(authProvider.notifier).logout();
                             ref.read(websocketProvider.notifier).disconnect();
 
+                            if (!context.mounted) {
+                              return;
+                            }
+
                             AutoRouter.of(context).back();
 
                             ImmichToast.show(
@@ -71,7 +75,7 @@ class ChangePasswordForm extends HookConsumerWidget {
                               toastType: ToastType.success,
                               gravity: ToastGravity.TOP,
                             );
-                          } else {
+                          } else if (context.mounted) {
                             ImmichToast.show(
                               context: context,
                               msg: "login_password_changed_error".tr(),

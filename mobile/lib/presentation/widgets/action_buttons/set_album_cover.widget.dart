@@ -30,9 +30,8 @@ class SetAlbumCoverActionButton extends ConsumerWidget {
     final result = await ref.read(actionProvider.notifier).setAlbumCover(source, albumId);
     ref.read(multiSelectProvider.notifier).reset();
 
-    final successMessage = 'album_cover_updated'.t(context: context);
-
     if (context.mounted) {
+      final successMessage = 'album_cover_updated'.t(context: context);
       ImmichToast.show(
         context: context,
         msg: result.success ? successMessage : 'scaffold_body_error_occurred'.t(context: context),

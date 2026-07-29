@@ -310,46 +310,51 @@ class SplashScreenPageState extends ConsumerState<SplashScreenPage> {
       final viewIntentHandler = ref.read(viewIntentHandlerProvider);
 
       unawaited(
-        ref.read(authProvider.notifier).saveAuthInfo(accessToken: accessToken).then(
-          (_) async {
-            try {
-              wsProvider.connect();
-              unawaited(infoProvider.getServerInfo());
+        ref
+            .read(authProvider.notifier)
+            .saveAuthInfo(accessToken: accessToken)
+            .then(
+              (_) async {
+                try {
+                  wsProvider.connect();
+                  unawaited(infoProvider.getServerInfo());
 
-              bool syncSuccess = false;
-              await Future.wait([
-                backgroundManager.syncLocal(full: true),
-                backgroundManager.syncRemote().then((success) => syncSuccess = success),
-              ]);
+                  bool syncSuccess = false;
+                  await Future.wait([
+                    backgroundManager.syncLocal(full: true),
+                    backgroundManager.syncRemote().then((success) => syncSuccess = success),
+                  ]);
 
-              await viewIntentHandler.flushDeferredViewIntent();
+                  await viewIntentHandler.flushDeferredViewIntent();
 
-              if (syncSuccess) {
-                await Future.wait([
-                  backgroundManager.hashAssets().then((_) {
-                    _resumeBackup(backupProvider);
-                  }),
-                  _resumeBackup(backupProvider),
-                  // TODO: Bring back when the soft freeze issue is addressed
-                  // backgroundManager.syncCloudIds(),
-                ]);
-              } else {
-                await backgroundManager.hashAssets();
-              }
+                  if (syncSuccess) {
+                    await Future.wait([
+                      backgroundManager.hashAssets().then((_) {
+                        _resumeBackup(backupProvider);
+                      }),
+                      _resumeBackup(backupProvider),
+                      // TODO: Bring back when the soft freeze issue is addressed
+                      // backgroundManager.syncCloudIds(),
+                    ]);
+                  } else {
+                    await backgroundManager.hashAssets();
+                  }
 
-              if (SettingsRepository.instance.appConfig.backup.syncAlbums) {
-                await backgroundManager.syncLinkedAlbum();
-              }
-            } catch (e) {
-              log.severe('Failed establishing connection to the server: $e');
-            }
-          },
-          onError: (exception) => {
-            log.severe('Failed to update auth info with access token: $accessToken'),
-            ref.read(authProvider.notifier).logout(),
-            context.router.replaceAll([const LoginRoute()]),
-          },
-        ),
+                  if (SettingsRepository.instance.appConfig.backup.syncAlbums) {
+                    await backgroundManager.syncLinkedAlbum();
+                  }
+                } catch (e) {
+                  log.severe('Failed establishing connection to the server: $e');
+                }
+              },
+              onError: (exception) {
+                log.severe('Failed to update auth info with access token: $accessToken');
+                unawaited(ref.read(authProvider.notifier).logout());
+                if (mounted) {
+                  unawaited(context.router.replaceAll([const LoginRoute()]));
+                }
+              },
+            ),
       );
     } else {
       log.severe('Missing crucial offline login info - Logging out completely');

@@ -114,30 +114,36 @@ class LoginForm extends HookConsumerWidget {
 
         serverEndpoint.value = endpoint;
       } on ApiException catch (e) {
-        ImmichToast.show(
-          context: context,
-          msg: e.message ?? 'login_form_api_exception'.tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.TOP,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: e.message ?? 'login_form_api_exception'.tr(),
+            toastType: ToastType.error,
+            gravity: ToastGravity.TOP,
+          );
+        }
         isOauthEnable.value = false;
         isPasswordLoginEnable.value = true;
       } on HandshakeException {
-        ImmichToast.show(
-          context: context,
-          msg: 'login_form_handshake_exception'.tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.TOP,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: 'login_form_handshake_exception'.tr(),
+            toastType: ToastType.error,
+            gravity: ToastGravity.TOP,
+          );
+        }
         isOauthEnable.value = false;
         isPasswordLoginEnable.value = true;
       } catch (e) {
-        ImmichToast.show(
-          context: context,
-          msg: 'login_form_server_error'.tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.TOP,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: 'login_form_server_error'.tr(),
+            toastType: ToastType.error,
+            gravity: ToastGravity.TOP,
+          );
+        }
         isOauthEnable.value = false;
         isPasswordLoginEnable.value = true;
       }
@@ -179,7 +185,7 @@ class LoginForm extends HookConsumerWidget {
 
     getManageMediaPermission() async {
       final hasPermission = await ref.read(permissionRepositoryProvider).hasManageMediaPermission();
-      if (!hasPermission) {
+      if (!hasPermission && context.mounted) {
         await showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -235,6 +241,10 @@ class LoginForm extends HookConsumerWidget {
       try {
         final result = await ref.read(authProvider.notifier).login(emailController.text, passwordController.text);
 
+        if (!context.mounted) {
+          return;
+        }
+
         if (result.shouldChangePassword && !result.isAdmin) {
           unawaited(context.pushRoute(const ChangePasswordRoute()));
         } else {
@@ -245,16 +255,20 @@ class LoginForm extends HookConsumerWidget {
           unawaited(handleSyncFlow());
           ref.read(websocketProvider.notifier).connect();
           unawaited(ref.read(featureMessageServiceProvider).markSeen());
-          unawaited(context.router.replaceAll([const TabShellRoute()]));
+          if (context.mounted) {
+            unawaited(context.router.replaceAll([const TabShellRoute()]));
+          }
           return;
         }
       } catch (error) {
-        ImmichToast.show(
-          context: context,
-          msg: "login_form_failed_login".tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.TOP,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: "login_form_failed_login".tr(),
+            toastType: ToastType.error,
+            gravity: ToastGravity.TOP,
+          );
+        }
       }
     }
 
@@ -303,12 +317,14 @@ class LoginForm extends HookConsumerWidget {
       } catch (error, stack) {
         log.severe('Error getting OAuth server Url: $error', stack);
 
-        ImmichToast.show(
-          context: context,
-          msg: "login_form_failed_get_oauth_server_config".tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.TOP,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: "login_form_failed_get_oauth_server_config".tr(),
+            toastType: ToastType.error,
+            gravity: ToastGravity.TOP,
+          );
+        }
         return;
       }
 
@@ -333,20 +349,24 @@ class LoginForm extends HookConsumerWidget {
             }
             unawaited(handleSyncFlow());
             unawaited(ref.read(featureMessageServiceProvider).markSeen());
-            unawaited(context.router.replaceAll([const TabShellRoute()]));
+            if (context.mounted) {
+              unawaited(context.router.replaceAll([const TabShellRoute()]));
+            }
             return;
           }
         } catch (error, stack) {
           log.severe('Error logging in with OAuth: $error', stack);
 
-          ImmichToast.show(
-            context: context,
-            msg: error.toString(),
-            toastType: ToastType.error,
-            gravity: ToastGravity.TOP,
-          );
+          if (context.mounted) {
+            ImmichToast.show(
+              context: context,
+              msg: error.toString(),
+              toastType: ToastType.error,
+              gravity: ToastGravity.TOP,
+            );
+          }
         } finally {}
-      } else {
+      } else if (context.mounted) {
         ImmichToast.show(
           context: context,
           msg: "login_form_failed_get_oauth_server_disable".tr(),

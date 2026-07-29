@@ -74,9 +74,8 @@ class DeleteActionButton extends ConsumerWidget {
       );
     }
 
-    final successMessage = 'delete_action_prompt'.t(context: context, args: {'count': result.count.toString()});
-
     if (context.mounted) {
+      final successMessage = 'delete_action_prompt'.t(context: context, args: {'count': result.count.toString()});
       ImmichToast.show(
         context: context,
         msg: result.success ? successMessage : 'scaffold_body_error_occurred'.t(context: context),

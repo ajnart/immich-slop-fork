@@ -43,6 +43,10 @@ class _RemoteAlbumPageState extends ConsumerState<RemoteAlbumPage> {
     final notifier = ref.read(remoteAlbumProvider.notifier);
     final albumAssets = await notifier.getAssets(_album.id);
 
+    if (!context.mounted) {
+      return;
+    }
+
     final newAssets = await context.pushRoute<Set<BaseAsset>>(
       DriftAssetSelectionTimelineRoute(lockedSelectionAssets: albumAssets.toSet()),
     );
@@ -72,7 +76,7 @@ class _RemoteAlbumPageState extends ConsumerState<RemoteAlbumPage> {
     try {
       await ref.read(remoteAlbumProvider.notifier).addUsers(_album.id, newUsers);
 
-      if (newUsers.isNotEmpty) {
+      if (newUsers.isNotEmpty && context.mounted) {
         ImmichToast.show(
           context: context,
           msg: "users_added_to_album_count".t(context: context, args: {'count': newUsers.length}),
@@ -82,11 +86,13 @@ class _RemoteAlbumPageState extends ConsumerState<RemoteAlbumPage> {
 
       ref.invalidate(remoteAlbumSharedUsersProvider(_album.id));
     } catch (e) {
-      ImmichToast.show(
-        context: context,
-        msg: "Failed to add users to album: ${e.toString()}",
-        toastType: ToastType.error,
-      );
+      if (context.mounted) {
+        ImmichToast.show(
+          context: context,
+          msg: "Failed to add users to album: ${e.toString()}",
+          toastType: ToastType.error,
+        );
+      }
     }
   }
 
@@ -129,6 +135,10 @@ class _RemoteAlbumPageState extends ConsumerState<RemoteAlbumPage> {
       try {
         await ref.read(remoteAlbumProvider.notifier).deleteAlbum(_album.id);
 
+        if (!context.mounted) {
+          return;
+        }
+
         ImmichToast.show(
           context: context,
           msg: 'album_deleted'.t(context: context),
@@ -137,11 +147,13 @@ class _RemoteAlbumPageState extends ConsumerState<RemoteAlbumPage> {
 
         unawaited(context.pushRoute(const DriftAlbumsRoute()));
       } catch (e) {
-        ImmichToast.show(
-          context: context,
-          msg: 'album_viewer_appbar_share_err_delete'.t(context: context),
-          toastType: ToastType.error,
-        );
+        if (context.mounted) {
+          ImmichToast.show(
+            context: context,
+            msg: 'album_viewer_appbar_share_err_delete'.t(context: context),
+            toastType: ToastType.error,
+          );
+        }
       }
     }
   }

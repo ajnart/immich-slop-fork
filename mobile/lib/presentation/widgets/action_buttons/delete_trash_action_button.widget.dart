@@ -38,12 +38,11 @@ class DeleteTrashActionButton extends ConsumerWidget {
     final result = await ref.read(actionProvider.notifier).deleteRemoteAndLocal(source);
     ref.read(multiSelectProvider.notifier).reset();
 
-    final successMessage = 'assets_permanently_deleted_count'.t(
-      context: context,
-      args: {'count': result.count.toString()},
-    );
-
     if (context.mounted) {
+      final successMessage = 'assets_permanently_deleted_count'.t(
+        context: context,
+        args: {'count': result.count.toString()},
+      );
       ImmichToast.show(
         context: context,
         msg: result.success ? successMessage : 'scaffold_body_error_occurred'.t(context: context),

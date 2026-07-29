@@ -53,6 +53,10 @@ class SyncStatusAndActions extends HookConsumerWidget {
 
         await dbFile.copy(exportFile.path);
 
+        if (!context.mounted) {
+          return;
+        }
+
         final size = MediaQuery.of(context).size;
         await Share.shareXFiles(
           [XFile(exportFile.path)],
@@ -96,6 +100,10 @@ class SyncStatusAndActions extends HookConsumerWidget {
               TextButton(
                 onPressed: () async {
                   await ref.read(driftProvider).reset();
+                  if (!context.mounted) {
+                    return;
+                  }
+
                   context.pop();
                   unawaited(
                     showDialog<void>(

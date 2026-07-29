@@ -44,7 +44,9 @@ class NetworkingSettings extends HookConsumerWidget {
                   onPressed: () async {
                     final isGrant = await ref.read(networkProvider.notifier).requestWifiReadPermission();
 
-                    Navigator.pop(context, isGrant);
+                    if (context.mounted) {
+                      Navigator.pop(context, isGrant);
+                    }
                   },
                   child: Text("grant_permission".tr()),
                 ),
@@ -54,7 +56,7 @@ class NetworkingSettings extends HookConsumerWidget {
         );
       }
 
-      if (!hasLocationAlways) {
+      if (!hasLocationAlways && context.mounted) {
         isGrantLocationAlwaysPermission = await showDialog(
           context: context,
           builder: (context) {
@@ -66,7 +68,9 @@ class NetworkingSettings extends HookConsumerWidget {
                   onPressed: () async {
                     final isGrant = await ref.read(networkProvider.notifier).requestWifiReadBackgroundPermission();
 
-                    Navigator.pop(context, isGrant);
+                    if (context.mounted) {
+                      Navigator.pop(context, isGrant);
+                    }
                   },
                   child: Text("grant_permission".tr()),
                 ),

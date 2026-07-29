@@ -32,12 +32,14 @@ class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonNameEditFor
       final result = await ref.read(driftPeopleServiceProvider).updateName(personId, newName);
       if (result != 0) {
         ref.invalidate(driftGetAllPeopleProvider);
-        context.pop<String>(newName);
+        if (mounted) {
+          context.pop<String>(newName);
+        }
       }
     } catch (error) {
       dPrint(() => 'Error updating name: $error');
 
-      if (!context.mounted) {
+      if (!mounted) {
         return;
       }
 

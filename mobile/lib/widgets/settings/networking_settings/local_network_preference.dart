@@ -98,18 +98,20 @@ class LocalNetworkPreference extends HookConsumerWidget {
       final wifiName = await ref.read(networkProvider.notifier).getWifiName();
 
       if (wifiName == null) {
-        context.showSnackBar(
-          SnackBar(
-            content: Text(
-              "get_wifiname_error".tr(),
-              style: context.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: context.colorScheme.onSecondary,
+        if (context.mounted) {
+          context.showSnackBar(
+            SnackBar(
+              content: Text(
+                "get_wifiname_error".tr(),
+                style: context.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: context.colorScheme.onSecondary,
+                ),
               ),
+              backgroundColor: context.colorScheme.secondary,
             ),
-            backgroundColor: context.colorScheme.secondary,
-          ),
-        );
+          );
+        }
       } else {
         unawaited(saveWifiName(wifiName));
       }

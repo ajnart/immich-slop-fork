@@ -42,7 +42,9 @@ class PinRegistrationForm extends HookConsumerWidget {
         onDone();
       } catch (error) {
         hasError.value = true;
-        context.showSnackBar(SnackBar(content: Text(error.toString())));
+        if (context.mounted) {
+          context.showSnackBar(SnackBar(content: Text(error.toString())));
+        }
       }
     }
 

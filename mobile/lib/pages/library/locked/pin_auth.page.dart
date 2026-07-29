@@ -25,7 +25,7 @@ class PinAuthPage extends HookConsumerWidget {
     Future<void> registerBiometric(String pinCode) async {
       final isRegistered = await ref.read(localAuthProvider.notifier).registerBiometric(context, pinCode);
 
-      if (isRegistered) {
+      if (isRegistered && context.mounted) {
         context.showSnackBar(
           SnackBar(
             content: Text('biometric_auth_enabled'.tr(), style: context.textTheme.labelLarge),

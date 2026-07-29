@@ -34,12 +34,14 @@ class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonBirthdayEdi
 
       if (result != 0) {
         ref.invalidate(driftGetAllPeopleProvider);
-        context.pop<DateTime>(_selectedDate);
+        if (mounted) {
+          context.pop<DateTime>(_selectedDate);
+        }
       }
     } catch (error) {
       dPrint(() => 'Error updating birthday: $error');
 
-      if (!context.mounted) {
+      if (!mounted) {
         return;
       }
 
