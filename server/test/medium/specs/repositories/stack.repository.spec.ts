@@ -1,8 +1,10 @@
-import { Kysely } from 'kysely';
+import { Insertable, Kysely } from 'kysely';
 import { AssetVisibility } from 'src/enum';
 import { LoggingRepository } from 'src/repositories/logging.repository';
 import { StackRepository } from 'src/repositories/stack.repository';
 import { DB } from 'src/schema';
+import { AssetExifTable } from 'src/schema/tables/asset-exif.table';
+import { AssetTable } from 'src/schema/tables/asset.table';
 import { BaseService } from 'src/services/base.service';
 import { newMediumService } from 'test/medium.factory';
 import { getKyselyDB } from 'test/utils';
@@ -18,6 +20,49 @@ const setup = (db?: Kysely<DB>) => {
   return { ctx, sut: ctx.get(StackRepository) };
 };
 
+type PairOptions = {
+  jpeg?: Partial<Insertable<AssetTable>>;
+  raw?: Partial<Insertable<AssetTable>>;
+  jpegExif?: Partial<Insertable<AssetExifTable>>;
+  rawExif?: Partial<Insertable<AssetExifTable>>;
+};
+
+const newRawPair = async (ctx: ReturnType<typeof setup>['ctx'], ownerId: string, options: PairOptions = {}) => {
+  const capturedAt = new Date('2026-07-18T22:26:06.000Z');
+  const [{ asset: jpeg }, { asset: raw }] = await Promise.all([
+    ctx.newAsset({
+      ownerId,
+      originalFileName: 'IMG_1234.JPG',
+      originalPath: '/upload/IMG_1234.JPG',
+      fileCreatedAt: capturedAt,
+      localDateTime: capturedAt,
+      ...options.jpeg,
+    }),
+    ctx.newAsset({
+      ownerId,
+      originalFileName: 'IMG_1234.RAF',
+      originalPath: '/upload/IMG_1234.RAF',
+      fileCreatedAt: capturedAt,
+      localDateTime: capturedAt,
+      ...options.raw,
+    }),
+  ]);
+
+  await Promise.all([
+    ctx.newExif({ assetId: jpeg.id, make: 'FUJIFILM', model: 'X-T5', ...options.jpegExif }),
+    ctx.newExif({ assetId: raw.id, make: 'FUJIFILM', model: 'X-T5', ...options.rawExif }),
+  ]);
+
+  return { jpeg, raw };
+};
+
+const invalidPairs: Array<PairOptions & { name: string }> = [
+  { name: 'different basenames', jpeg: { originalFileName: 'IMG_1235.JPG' } },
+  { name: 'different capture times', jpeg: { fileCreatedAt: new Date('2026-07-18T22:26:07.000Z') } },
+  { name: 'different camera models', jpegExif: { model: 'X-T4' } },
+  { name: 'different visibility', jpeg: { visibility: AssetVisibility.Archive } },
+];
+
 beforeAll(async () => {
   defaultDatabase = await getKyselyDB();
 });
@@ -27,27 +72,9 @@ describe(StackRepository.name, () => {
     it.each(['RAF', 'RAW', 'CR3'])('should stack a .%s file under its matching JPEG', async (extension) => {
       const { ctx, sut } = setup();
       const { user } = await ctx.newUser();
-      const capturedAt = new Date('2026-07-18T22:26:06.000Z');
-      const [{ asset: jpeg }, { asset: raw }] = await Promise.all([
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'IMG_1234.JPG',
-          originalPath: '/upload/one.jpg',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: `IMG_1234.${extension}`,
-          originalPath: '/upload/two.raw',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-      ]);
-      await Promise.all([
-        ctx.newExif({ assetId: jpeg.id, make: 'FUJIFILM', model: 'X-T5' }),
-        ctx.newExif({ assetId: raw.id, make: 'FUJIFILM', model: 'X-T5' }),
-      ]);
+      const { jpeg, raw } = await newRawPair(ctx, user.id, {
+        raw: { originalFileName: `IMG_1234.${extension}` },
+      });
 
       const stackId = await sut.autoStackRawPair(raw.id);
 
@@ -71,27 +98,10 @@ describe(StackRepository.name, () => {
     it('should create only one stack when both metadata events run concurrently', async () => {
       const { ctx, sut } = setup();
       const { user } = await ctx.newUser();
-      const capturedAt = new Date('2026-07-18T22:26:06.000Z');
-      const [{ asset: jpeg }, { asset: raw }] = await Promise.all([
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'DSCF0001.jpeg',
-          originalPath: '/upload/one.jpg',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'DSCF0001.raf',
-          originalPath: '/upload/two.raf',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-      ]);
-      await Promise.all([
-        ctx.newExif({ assetId: jpeg.id, make: 'FUJIFILM', model: 'X-T5' }),
-        ctx.newExif({ assetId: raw.id, make: 'FUJIFILM', model: 'X-T5' }),
-      ]);
+      const { jpeg, raw } = await newRawPair(ctx, user.id, {
+        jpeg: { originalFileName: 'DSCF0001.jpeg' },
+        raw: { originalFileName: 'DSCF0001.raf' },
+      });
 
       const results = await Promise.all([sut.autoStackRawPair(jpeg.id), sut.autoStackRawPair(raw.id)]);
       const stackIds = results.filter((id) => id !== undefined);
@@ -105,25 +115,9 @@ describe(StackRepository.name, () => {
     it('should leave existing manual stacks unchanged', async () => {
       const { ctx, sut } = setup();
       const { user } = await ctx.newUser();
-      const capturedAt = new Date('2026-07-18T22:26:06.000Z');
-      const [{ asset: jpeg }, { asset: raw }, { asset: other }] = await Promise.all([
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'IMG_1234.JPG',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'IMG_1234.RAF',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
+      const [{ jpeg, raw }, { asset: other }] = await Promise.all([
+        newRawPair(ctx, user.id),
         ctx.newAsset({ ownerId: user.id, originalFileName: 'other.jpg' }),
-      ]);
-      await Promise.all([
-        ctx.newExif({ assetId: jpeg.id, make: 'FUJIFILM', model: 'X-T5' }),
-        ctx.newExif({ assetId: raw.id, make: 'FUJIFILM', model: 'X-T5' }),
       ]);
       const { result: manualStack } = await ctx.newStack({ ownerId: user.id }, [jpeg.id, other.id]);
 
@@ -133,59 +127,10 @@ describe(StackRepository.name, () => {
       ).resolves.toEqual([{ id: manualStack.id }]);
     });
 
-    it.each([
-      {
-        name: 'different basenames',
-        jpeg: { originalFileName: 'IMG_1235.JPG' },
-        raw: {},
-        jpegExif: {},
-        rawExif: {},
-      },
-      {
-        name: 'different capture times',
-        jpeg: { fileCreatedAt: new Date('2026-07-18T22:26:07.000Z') },
-        raw: {},
-        jpegExif: {},
-        rawExif: {},
-      },
-      {
-        name: 'different camera models',
-        jpeg: {},
-        raw: {},
-        jpegExif: { model: 'X-T4' },
-        rawExif: {},
-      },
-      {
-        name: 'different visibility',
-        jpeg: { visibility: AssetVisibility.Archive },
-        raw: {},
-        jpegExif: {},
-        rawExif: {},
-      },
-    ])('should not stack assets with $name', async ({ jpeg, raw, jpegExif, rawExif }) => {
+    it.each(invalidPairs)('should not stack assets with $name', async ({ jpeg, raw, jpegExif, rawExif }) => {
       const { ctx, sut } = setup();
       const { user } = await ctx.newUser();
-      const capturedAt = new Date('2026-07-18T22:26:06.000Z');
-      const [{ asset: jpegAsset }, { asset: rawAsset }] = await Promise.all([
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'IMG_1234.JPG',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-          ...jpeg,
-        }),
-        ctx.newAsset({
-          ownerId: user.id,
-          originalFileName: 'IMG_1234.RAF',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-          ...raw,
-        }),
-      ]);
-      await Promise.all([
-        ctx.newExif({ assetId: jpegAsset.id, make: 'FUJIFILM', model: 'X-T5', ...jpegExif }),
-        ctx.newExif({ assetId: rawAsset.id, make: 'FUJIFILM', model: 'X-T5', ...rawExif }),
-      ]);
+      const { raw: rawAsset } = await newRawPair(ctx, user.id, { jpeg, raw, jpegExif, rawExif });
 
       await expect(sut.autoStackRawPair(rawAsset.id)).resolves.toBeUndefined();
       await expect(
@@ -206,29 +151,10 @@ describe(StackRepository.name, () => {
         })
         .returning('id')
         .executeTakeFirstOrThrow();
-      const capturedAt = new Date('2026-07-18T22:26:06.000Z');
-      const [{ asset: jpeg }, { asset: raw }] = await Promise.all([
-        ctx.newAsset({
-          ownerId: user.id,
-          libraryId: library.id,
-          originalFileName: 'IMG_1234.JPG',
-          originalPath: '/photos/jpeg/IMG_1234.JPG',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-        ctx.newAsset({
-          ownerId: user.id,
-          libraryId: library.id,
-          originalFileName: 'IMG_1234.RAF',
-          originalPath: '/photos/raw/IMG_1234.RAF',
-          fileCreatedAt: capturedAt,
-          localDateTime: capturedAt,
-        }),
-      ]);
-      await Promise.all([
-        ctx.newExif({ assetId: jpeg.id, make: 'FUJIFILM', model: 'X-T5' }),
-        ctx.newExif({ assetId: raw.id, make: 'FUJIFILM', model: 'X-T5' }),
-      ]);
+      const { raw } = await newRawPair(ctx, user.id, {
+        jpeg: { libraryId: library.id, originalPath: '/photos/jpeg/IMG_1234.JPG' },
+        raw: { libraryId: library.id, originalPath: '/photos/raw/IMG_1234.RAF' },
+      });
 
       await expect(sut.autoStackRawPair(raw.id)).resolves.toBeUndefined();
       await expect(

@@ -19,6 +19,8 @@ export interface StackSearch {
 const jpegExtensions = new Set(['.jpe', '.jpeg', '.jpg']);
 const isJpeg = (filename: string) => jpegExtensions.has(parse(filename).ext.toLowerCase());
 const getBasename = (filename: string) => parse(filename).name.toLowerCase();
+const isRawJpegPair = (first: string, second: string) =>
+  (mimeTypes.isRaw(first) && isJpeg(second)) || (isJpeg(first) && mimeTypes.isRaw(second));
 
 const withAssets = (eb: ExpressionBuilder<DB, 'stack'>, withTags = false) => {
   return jsonArrayFrom(
@@ -63,14 +65,11 @@ export class StackRepository {
       .select([
         'asset.id',
         'asset.ownerId',
-        'asset.type',
         'asset.originalPath',
         'asset.originalFileName',
         'asset.fileCreatedAt',
         'asset.libraryId',
         'asset.visibility',
-        'asset.stackId',
-        'asset.isEdited',
       ])
       .where('asset.id', '=', id)
       .where('asset.deletedAt', 'is', null)
@@ -84,13 +83,7 @@ export class StackRepository {
    */
   async autoStackRawPair(assetId: string): Promise<string | undefined> {
     const initial = await this.getRawPairAsset(this.db, assetId);
-    if (
-      !initial ||
-      initial.type !== AssetType.Image ||
-      initial.isEdited ||
-      initial.stackId ||
-      (!mimeTypes.isRaw(initial.originalFileName) && !isJpeg(initial.originalFileName))
-    ) {
+    if (!initial) {
       return;
     }
 
@@ -118,34 +111,30 @@ export class StackRepository {
         return;
       }
 
-      const currentIsRaw = mimeTypes.isRaw(current.originalFileName);
-      const matches = assets.filter((candidate) => {
-        const isComplement = currentIsRaw
-          ? isJpeg(candidate.originalFileName)
-          : mimeTypes.isRaw(candidate.originalFileName);
-        const isSameDirectory =
-          initial.libraryId === null ||
-          dirname(current.originalPath).toLowerCase() === dirname(candidate.originalPath).toLowerCase();
-
-        return (
+      const matches = assets.filter(
+        (candidate) =>
           candidate.id !== current.id &&
-          isComplement &&
-          isSameDirectory &&
+          isRawJpegPair(current.originalFileName, candidate.originalFileName) &&
           getBasename(candidate.originalFileName) === getBasename(current.originalFileName) &&
           candidate.make === current.make &&
-          candidate.model === current.model
-        );
-      });
+          candidate.model === current.model &&
+          (initial.libraryId === null ||
+            dirname(current.originalPath).toLowerCase() === dirname(candidate.originalPath).toLowerCase()),
+      );
 
       if (matches.length !== 1) {
         return;
       }
 
       const match = matches[0];
-      const primaryAssetId = currentIsRaw ? match.id : current.id;
+      const primary = [current, match].find(({ originalFileName }) => isJpeg(originalFileName));
+      if (!primary) {
+        return;
+      }
+
       const { id } = await tx
         .insertInto('stack')
-        .values({ ownerId: initial.ownerId, primaryAssetId })
+        .values({ ownerId: initial.ownerId, primaryAssetId: primary.id })
         .returning('id')
         .executeTakeFirstOrThrow();
 
