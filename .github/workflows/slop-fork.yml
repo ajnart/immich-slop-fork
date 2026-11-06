@@ -1,0 +1,141 @@
+name: Slop fork image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['slop-fork/raw-companions']
+
+permissions: {}
+
+concurrency:
+  group: slop-fork-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.repository == 'ajnart/immich-slop-fork' && github.ref == 'refs/heads/slop-fork/raw-companions'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Verify baseline and unchanged schema
+        run: |
+          git merge-base --is-ancestor 587f549f46f1cd1822a06e16dcccecef04ea4565 HEAD
+          git diff --exit-code 587f549f46f1cd1822a06e16dcccecef04ea4565 -- server/src/schema server/src/migrations
+          test "$(jq -r .version server/package.json)" = 3.3.6
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        with:
+          version: 2026.9.12
+          monorepo: false
+          install_args: node pnpm github:extism/cli github:webassembly/binaryen github:extism/js-pdk github:jellyfin/jellyfin-ffmpeg
+      - name: Build plugins and install server dependencies
+        run: |
+          mise run //:plugins
+          mise run //server:install
+      - name: Test server
+        run: mise run //server:test --run --maxWorkers=2
+      - name: Test database behavior
+        run: mise run //server:test-medium --run
+      - name: Build and check server
+        run: |
+          mise run //server:build
+          mise run //server:check
+          mise run //server:format
+          mise run //server:lint
+
+  image:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SLOP_IMAGE: ghcr.io/ajnart/immich-slop-fork:v3.3.6-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.22.1
+      - name: Install RAW fixture metadata tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libimage-exiftool-perl
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build complete server image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: ${{ env.SLOP_IMAGE }}
+          cache-from: type=gha,scope=slop-fork-amd64
+          cache-to: type=gha,mode=max,scope=slop-fork-amd64
+          labels: |
+            org.opencontainers.image.source=https://github.com/ajnart/immich-slop-fork
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=v3.3.6-slop-fork
+          build-args: |
+            BUILD_ID=${{ github.run_id }}
+            BUILD_IMAGE=${{ env.SLOP_IMAGE }}
+            BUILD_SOURCE_REF=${{ github.ref_name }}
+            BUILD_SOURCE_COMMIT=${{ github.sha }}
+            BUILD_REPOSITORY=${{ github.repository }}
+            BUILD_PACKAGE=immich-slop-fork
+      - name: Start disposable stack and verify runtime
+        run: |
+          docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 3 and .patch == 6'
+          curl --fail --silent --show-error http://127.0.0.1:2283/ --output "$RUNNER_TEMP/slop-index.html"
+          test -s "$RUNNER_TEMP/slop-index.html"
+      - name: Verify RAW companion import and original downloads
+        run: |
+          export IMMICH_SMOKE_STATE_PATH="$RUNNER_TEMP/slop-fork-smoke-state.json"
+          node .github/scripts/slop-fork-import-smoke.mjs
+          docker compose -f .github/slop-fork-smoke.yml logs --no-color > slop-fork-enabled.log
+      - name: Verify disabled mode preserves assets and skips pairing
+        run: |
+          IMMICH_RAW_COMPANIONS=false docker compose -f .github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
+          export IMMICH_SMOKE_STATE_PATH="$RUNNER_TEMP/slop-fork-smoke-state.json"
+          node .github/scripts/slop-fork-import-smoke.mjs --disabled
+      - name: Capture container logs
+        if: always()
+        run: docker compose -f .github/slop-fork-smoke.yml logs --no-color > slop-fork-smoke.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: slop-fork-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            slop-fork-enabled.log
+            slop-fork-smoke.log
+          retention-days: 7
+      - name: Remove disposable stack
+        if: always()
+        run: docker compose -f .github/slop-fork-smoke.yml down --volumes --remove-orphans
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested image once
+        run: |
+          if docker manifest inspect "$SLOP_IMAGE" > /dev/null 2>&1; then
+            echo 'Refusing to replace an existing image tag.' >&2
+            exit 1
+          fi
+          docker push "$SLOP_IMAGE"
+          digest_ref=$(docker image inspect "$SLOP_IMAGE" --format '{{index .RepoDigests 0}}')
+          test -n "$digest_ref"
+          printf '## Tested slop-fork image\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nPlatform: `linux/amd64`\n\nBaseline: `v3.3.6` (`587f549f46f1cd1822a06e16dcccecef04ea4565`)\n' "$SLOP_IMAGE" "$digest_ref" >> "$GITHUB_STEP_SUMMARY"

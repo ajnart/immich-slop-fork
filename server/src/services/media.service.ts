@@ -43,6 +43,7 @@ import { checkFaceVisibility, checkOcrVisibility } from 'src/utils/editor.js';
 import { BaseConfig, ThumbnailConfig } from 'src/utils/media.js';
 import { mimeTypes } from 'src/utils/mime-types.js';
 import { batched, clamp } from 'src/utils/misc.js';
+import { isRawCompanion } from 'src/utils/raw-companion.js';
 import { getOutputDimensions } from 'src/utils/transform.js';
 
 interface UpsertFileOptions {
@@ -203,13 +204,34 @@ export class MediaService extends BaseService {
       return JobStatus.Skipped;
     }
 
+    let companion: Awaited<ReturnType<typeof this.stackRepository.pairRawCompanion>>;
+    let source = asset;
+    if (
+      process.env.IMMICH_RAW_COMPANIONS === 'true' &&
+      asset.type === AssetType.Image &&
+      asset.edits.length === 0 &&
+      isRawCompanion(asset.originalFileName)
+    ) {
+      try {
+        companion = await this.stackRepository.pairRawCompanion(id, false);
+        if (companion?.rawId === id) {
+          const rendered = await this.assetJobRepository.getForGenerateThumbnailJob(companion.renderedId);
+          if (rendered && rendered.edits.length === 0 && rendered.visibility !== AssetVisibility.Hidden) {
+            source = rendered;
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`Could not find a RAW companion for asset ${id}: ${error}`);
+      }
+    }
+
     let generated: Awaited<ReturnType<MediaService['generateImageThumbnails']>>;
     if (asset.type === AssetType.Video || asset.originalFileName.toLowerCase().endsWith('.gif')) {
       this.logger.verbose(`Thumbnail generation for video ${id} ${asset.originalPath}`);
       generated = await this.generateVideoThumbnails(asset, config);
     } else if (asset.type === AssetType.Image) {
       this.logger.verbose(`Thumbnail generation for image ${id} ${asset.originalPath}`);
-      generated = await this.generateImageThumbnails(asset, config);
+      generated = await this.generateImageThumbnails(asset, config, false, source);
     } else {
       this.logger.warn(`Skipping thumbnail generation for asset ${id}: ${asset.type} is not an image or video`);
       return JobStatus.Skipped;
@@ -225,6 +247,20 @@ export class MediaService extends BaseService {
 
     if (!asset.thumbhash || Buffer.compare(asset.thumbhash, thumbhash) !== 0) {
       await this.assetRepository.update({ id: asset.id, thumbhash });
+    }
+
+    if (companion && (companion.renderedId === id || generated.companionId === companion.renderedId)) {
+      try {
+        companion = await this.stackRepository.pairRawCompanion(id, true, companion);
+        if (companion?.created && companion.stackId) {
+          await this.eventRepository.emit('StackCreate', { stackId: companion.stackId, userId: companion.ownerId });
+        }
+        if (companion?.renderedId === id) {
+          await this.jobRepository.queue({ name: JobName.AssetGenerateThumbnails, data: { id: companion.rawId } });
+        }
+      } catch (error) {
+        this.logger.warn(`Could not stack RAW companions for asset ${id}: ${error}`);
+      }
     }
 
     return JobStatus.Success;
@@ -288,9 +324,29 @@ export class MediaService extends BaseService {
     };
   }
 
-  private async generateImageThumbnails(asset: ThumbnailAsset, { image }: SystemConfig, useEdits: boolean = false) {
+  private async generateImageThumbnails(
+    asset: ThumbnailAsset,
+    { image }: SystemConfig,
+    useEdits: boolean = false,
+    source: ThumbnailAsset = asset,
+  ) {
     // Handle embedded preview extraction for RAW files
-    const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
+    let extractedImage: Awaited<ReturnType<MediaService['extractOriginalImage']>>;
+    try {
+      extractedImage = await this.extractOriginalImage(
+        source,
+        image,
+        useEdits ||
+          (source.id !== asset.id && (image.fullsize.enabled || asset.exifInfo.projectionType === 'EQUIRECTANGULAR')),
+      );
+    } catch (error) {
+      if (source.id === asset.id) {
+        throw error;
+      }
+      this.logger.warn(`Could not use rendered companion for asset ${asset.id}, falling back to the RAW original`);
+      source = asset;
+      extractedImage = await this.extractOriginalImage(asset, image, useEdits);
+    }
     const { info, data, colorspace, generateFullsize, convertFullsize, extracted, isTransparent } = extractedImage;
 
     const previewFormat = image.preview.format;
@@ -369,12 +425,10 @@ export class MediaService extends BaseService {
     const outputs = await Promise.all(promises);
 
     if (asset.exifInfo.projectionType === 'EQUIRECTANGULAR') {
-      const promises = [
-        this.mediaRepository.copyTagGroup('XMP-GPano', asset.originalPath, previewFile.path),
-        fullsizeFile
-          ? this.mediaRepository.copyTagGroup('XMP-GPano', asset.originalPath, fullsizeFile.path)
-          : Promise.resolve(),
-      ];
+      const promises = [this.mediaRepository.copyTagGroup('XMP-GPano', source.originalPath, previewFile.path)];
+      if (fullsizeFile) {
+        promises.push(this.mediaRepository.copyTagGroup('XMP-GPano', source.originalPath, fullsizeFile.path));
+      }
       await Promise.all(promises);
     }
 
@@ -385,6 +439,7 @@ export class MediaService extends BaseService {
       files: fullsizeFile ? [previewFile, thumbnailFile, fullsizeFile] : [previewFile, thumbnailFile],
       thumbhash: outputs[0] as Buffer,
       fullsizeDimensions,
+      ...(source.id !== asset.id && { companionId: source.id }),
     };
   }
 
@@ -402,7 +457,9 @@ export class MediaService extends BaseService {
 
     const { x1, y1, x2, y2, oldWidth, oldHeight, exifOrientation, previewPath, originalPath } = data;
     let inputImage: string | Buffer;
-    if (data.type === AssetType.Video) {
+    if (process.env.IMMICH_RAW_COMPANIONS === 'true' && mimeTypes.isRaw(originalPath) && previewPath) {
+      inputImage = previewPath;
+    } else if (data.type === AssetType.Video) {
       if (!previewPath) {
         this.logger.error(`Could not generate person thumbnail for video ${personGroupId}: missing preview path`);
         return JobStatus.Failed;
