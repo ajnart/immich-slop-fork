@@ -1,0 +1,66 @@
+name: Slop fork feature code generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Minimal feature branch or exact source commit
+        required: true
+        default: feat/raw-companion-stacking
+        type: string
+      verify_clean:
+        description: Require generated files to match the source commit
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+      verify_clean:
+        required: false
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  generate:
+    if: github.repository == 'ajnart/immich-slop-fork'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify minimal source and record commit
+        run: |
+          git merge-base --is-ancestor 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d HEAD
+          git diff --exit-code 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d -- .github server/Dockerfile server/src/schema server/src/migrations
+          mkdir -p "$RUNNER_TEMP/slop-codegen"
+          git rev-parse HEAD > "$RUNNER_TEMP/slop-codegen/source-commit.txt"
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        with:
+          version: 2026.11.3
+          install_args: node pnpm java npm:oazapfts npm:@openapitools/openapi-generator-cli github:extism/cli github:webassembly/binaryen github:extism/js-pdk
+      - name: Generate OpenAPI and TypeScript and Dart clients
+        run: mise run //:open-api
+      - name: Export generated files only
+        run: |
+          git add -N -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi
+          git diff --binary -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi > "$RUNNER_TEMP/slop-codegen/generated.patch"
+          git diff --stat -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi > "$RUNNER_TEMP/slop-codegen/changes.txt"
+          cat "$RUNNER_TEMP/slop-codegen/changes.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: slop-codegen-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/slop-codegen/
+          retention-days: 7
+      - name: Verify generated files are current
+        if: inputs.verify_clean
+        run: git diff --exit-code -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi
