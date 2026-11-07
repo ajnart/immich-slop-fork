@@ -190,7 +190,8 @@ export class MediaService extends BaseService {
   }
 
   @OnJob({ name: JobName.AssetGenerateThumbnails, queue: QueueName.ThumbnailGeneration })
-  async handleGenerateThumbnails({ id }: JobOf<JobName.AssetGenerateThumbnails>): Promise<JobStatus> {
+  async handleGenerateThumbnails(data: JobOf<JobName.AssetGenerateThumbnails>): Promise<JobStatus> {
+    const { id } = data;
     const asset = await this.assetJobRepository.getForGenerateThumbnailJob(id);
     const config = await this.getConfig({ withCache: true });
 
@@ -207,7 +208,7 @@ export class MediaService extends BaseService {
     let companion: Awaited<ReturnType<typeof this.stackRepository.pairRawCompanion>>;
     let source = asset;
     if (
-      process.env.IMMICH_RAW_COMPANIONS === 'true' &&
+      process.env.IMMICH_RAW_COMPANIONS !== 'false' &&
       asset.type === AssetType.Image &&
       asset.edits.length === 0 &&
       isRawCompanion(asset.originalFileName)
@@ -247,6 +248,10 @@ export class MediaService extends BaseService {
 
     if (!asset.thumbhash || Buffer.compare(asset.thumbhash, thumbhash) !== 0) {
       await this.assetRepository.update({ id: asset.id, thumbhash });
+    }
+
+    if (generated.companionId) {
+      data.notify = true;
     }
 
     if (companion && (companion.renderedId === id || generated.companionId === companion.renderedId)) {
@@ -460,7 +465,7 @@ export class MediaService extends BaseService {
 
     const { x1, y1, x2, y2, oldWidth, oldHeight, exifOrientation, previewPath, originalPath } = data;
     let inputImage: string | Buffer;
-    if (process.env.IMMICH_RAW_COMPANIONS === 'true' && mimeTypes.isRaw(originalPath) && previewPath) {
+    if (process.env.IMMICH_RAW_COMPANIONS !== 'false' && mimeTypes.isRaw(originalPath) && previewPath) {
       inputImage = previewPath;
     } else if (data.type === AssetType.Video) {
       if (!previewPath) {

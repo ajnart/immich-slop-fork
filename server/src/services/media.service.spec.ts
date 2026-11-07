@@ -1503,6 +1503,10 @@ describe(MediaService.name, () => {
   });
 
   describe('handleGeneratePersonThumbnail', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it('should generate a thumbnail even if machine learning is disabled', async () => {
       mocks.systemMetadata.get.mockResolvedValue(systemConfigStub.machineLearningDisabled);
       mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue(personThumbnailStub.newThumbnailMiddle);
@@ -1816,6 +1820,7 @@ describe(MediaService.name, () => {
     });
 
     it('should use embedded preview if enabled and raw image', async () => {
+      vi.stubEnv('IMMICH_RAW_COMPANIONS', 'false');
       const person = PersonFactory.create();
 
       mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
@@ -1882,6 +1887,7 @@ describe(MediaService.name, () => {
     });
 
     it('should not use embedded preview if enabled and raw image if not exists', async () => {
+      vi.stubEnv('IMMICH_RAW_COMPANIONS', 'false');
       const person = PersonFactory.create();
 
       mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
@@ -1905,6 +1911,7 @@ describe(MediaService.name, () => {
     });
 
     it('should not use embedded preview if enabled and raw image if low resolution', async () => {
+      vi.stubEnv('IMMICH_RAW_COMPANIONS', 'false');
       const person = PersonFactory.create();
 
       mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
