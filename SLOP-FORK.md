@@ -1,13 +1,13 @@
 # Slop fork: RAW companions
 
-This experiment starts at Immich **v3.3.6**, commit `587f549f46f1cd1822a06e16dcccecef04ea4565`, on `slop-fork/raw-companions` in `ajnart/immich-slop-fork`. Existing `main` and upstream branches are not changed. Enable the experiment with `IMMICH_RAW_COMPANIONS=true` on the server.
+This fork is based on Immich **v3.3.6**, commit `587f549f46f1cd1822a06e16dcccecef04ea4565`, on `slop-fork/raw-companions` in `ajnart/immich-slop-fork`. Existing `main` and upstream branches are not changed. RAW companion pairing is enabled automatically. No extra environment variable or client update is needed. Set `IMMICH_RAW_COMPANIONS=false` only if you want to disable automatic pairing.
 
 Use this as a **same-version server swap**. If your installation is older or newer than v3.3.6, first follow Immich's supported upgrade/restore process separately. An upgrade from another version may run database migrations. This branch adds no schema migrations; CI verifies that the schema and migration paths still match the baseline. Keep machine learning, database, Redis, clients, volumes, and your existing configuration compatible with v3.3.6.
 
 ## Quick start
 
 1. Confirm an existing **v3.3.6, Linux amd64** installation and complete the [checkpoint](#checkpoint-before-the-trial), including the original image, database, and media backup.
-2. Run the [trial commands](#try-the-tested-image), which already contain the verified immutable image digest. The override swaps only the server image and enables `IMMICH_RAW_COMPANIONS=true`.
+2. Run the [trial commands](#try-the-tested-image), which already contain the verified immutable image digest. The override swaps only the server image and uses automatic RAW companion pairing.
 3. Upload a small matching RAW/JPEG pair in both orders, inspect the stack and original downloads, then keep testing or run the [rollback commands](#roll-back-to-the-exact-original-image).
 
 Matching is deliberately conservative: exactly one RAW and one JPEG (`.jpg`/`.jpeg`) or PNG image must share the filename stem, owner, and library. Uploaded pairs need matching EXIF capture time, camera make, and model; external-library pairs must share a directory and must not have conflicting metadata. Archive visibility and favorite status must also agree, preserving those user choices. Ambiguous matches, edited assets, offline or trashed assets, Live Photos, and incompatible existing stacks are skipped. The rendered image becomes the stack primary, while both originals remain independent assets.
@@ -60,8 +60,6 @@ cat > slop-fork.yml <<EOF_COMPOSE
 services:
   immich-server:
     image: ${SLOP_IMAGE}
-    environment:
-      IMMICH_RAW_COMPANIONS: 'true'
 EOF_COMPOSE
 docker compose -f docker-compose.yml -f slop-fork.yml up -d --no-deps immich-server
 docker compose -f docker-compose.yml -f slop-fork.yml logs --tail=100 immich-server
@@ -91,6 +89,6 @@ An image rollback does not undo application data changes made during the trial, 
 
 ## Design context
 
-The [automatic-stacking discussion](https://github.com/immich-app/immich/discussions/2479#discussioncomment-18055821) covers a much broader feature. Its [maintainer-direction update](https://github.com/immich-app/immich/discussions/2479#discussioncomment-19232700) points toward plugins and workflows, and [metadata duplicate detection #31286](https://github.com/immich-app/immich/pull/31286) was closed. This opt-in fork keeps the experiment limited to RAW/rendered companions and thumbnail processing, using existing stack records without changing duplicate detection or adding schema.
+The [automatic-stacking discussion](https://github.com/immich-app/immich/discussions/2479#discussioncomment-18055821) covers a much broader feature. Its [maintainer-direction update](https://github.com/immich-app/immich/discussions/2479#discussioncomment-19232700) points toward plugins and workflows, and [metadata duplicate detection #31286](https://github.com/immich-app/immich/pull/31286) was closed. This fork keeps pairing limited to RAW/rendered companions and thumbnail processing, using existing stack records without changing duplicate detection or adding schema.
 
 The baseline includes the [primary-selection fix #31380](https://github.com/immich-app/immich/pull/31380). The approach follows [PhotoPrism's rendered-preview preference](https://docs.photoprism.app/user-guide/organize/stacks/) while retaining Immich's independent asset-file ownership, so deleting a companion cannot delete the RAW's generated files. A late companion also refreshes the RAW's search, face, OCR, and client data through the existing job pipeline.
