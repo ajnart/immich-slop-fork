@@ -14,6 +14,7 @@ const createAsset = (overrides: Partial<RawCompanionAsset> = {}): RawCompanionAs
   deletedAt: null,
   isOffline: false,
   isEdited: false,
+  isFavorite: false,
   type: AssetType.Image,
   visibility: AssetVisibility.Timeline,
   status: AssetStatus.Active,
@@ -263,6 +264,48 @@ describe('findRawCompanionPair', () => {
 
     expect(findRawCompanionPair(raw, [raw, createRendered(overrides)])).toBeUndefined();
     expect(findRawCompanionPair(ineligibleRaw, [ineligibleRaw, rendered])).toBeUndefined();
+  });
+
+  it.each([
+    [AssetVisibility.Timeline, AssetVisibility.Archive],
+    [AssetVisibility.Archive, AssetVisibility.Timeline],
+  ])('preserves different visibility choices: %s / %s', (rawVisibility, renderedVisibility) => {
+    const raw = createAsset({ visibility: rawVisibility });
+    const rendered = createRendered({ visibility: renderedVisibility });
+
+    expect(findRawCompanionPair(raw, [raw, rendered])).toBeUndefined();
+    expect(findRawCompanionPair(rendered, [rendered, raw])).toBeUndefined();
+  });
+
+  it('pairs two archived assets without changing their visibility', () => {
+    const raw = createAsset({ visibility: AssetVisibility.Archive });
+    const rendered = createRendered({ visibility: AssetVisibility.Archive });
+
+    expect(findRawCompanionPair(raw, [raw, rendered])).toEqual({ raw, rendered });
+    expect(findRawCompanionPair(rendered, [rendered, raw])).toEqual({ raw, rendered });
+    expect(raw.visibility).toBe(AssetVisibility.Archive);
+    expect(rendered.visibility).toBe(AssetVisibility.Archive);
+  });
+
+  it.each([
+    [true, false],
+    [false, true],
+  ])('preserves different favorite choices: %s / %s', (rawFavorite, renderedFavorite) => {
+    const raw = createAsset({ isFavorite: rawFavorite });
+    const rendered = createRendered({ isFavorite: renderedFavorite });
+
+    expect(findRawCompanionPair(raw, [raw, rendered])).toBeUndefined();
+    expect(findRawCompanionPair(rendered, [rendered, raw])).toBeUndefined();
+  });
+
+  it('pairs two favorite assets without changing their favorite status', () => {
+    const raw = createAsset({ isFavorite: true });
+    const rendered = createRendered({ isFavorite: true });
+
+    expect(findRawCompanionPair(raw, [raw, rendered])).toEqual({ raw, rendered });
+    expect(findRawCompanionPair(rendered, [rendered, raw])).toEqual({ raw, rendered });
+    expect(raw.isFavorite).toBe(true);
+    expect(rendered.isFavorite).toBe(true);
   });
 
   it.each([

@@ -14,6 +14,7 @@ export interface RawCompanionAsset {
   deletedAt: Date | string | null;
   isOffline: boolean;
   isEdited: boolean;
+  isFavorite: boolean;
   type: AssetType;
   visibility: AssetVisibility;
   livePhotoVideoId?: string | null;
@@ -74,7 +75,13 @@ export function findRawCompanionPair(asset: RawCompanionAsset, candidates: RawCo
 
   const raw = matches.find((candidate) => mimeTypes.isRaw(candidate.originalFileName));
   const rendered = matches.find((candidate) => isRendered(candidate.originalFileName));
-  if (!raw || !rendered || raw.stackId !== rendered.stackId) {
+  if (
+    !raw ||
+    !rendered ||
+    raw.stackId !== rendered.stackId ||
+    raw.visibility !== rendered.visibility ||
+    raw.isFavorite !== rendered.isFavorite
+  ) {
     return;
   }
 
