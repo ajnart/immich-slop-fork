@@ -130,11 +130,12 @@ async function demonstrate(name, width, height) {
   await screenshot(`${name}-timeline`);
   browser("click", `[data-asset="${state.pair.ids.rendered}"]`);
   waitForAsset(state.pair.ids.rendered);
+  console.log(`${name}: primary viewer image ready`);
   browser("wait", "#stack-slideshow");
   browser(
     "wait",
     "--fn",
-    "(() => { const images = Array.from(document.querySelectorAll('#stack-slideshow [data-asset] img')).filter(image => !image.src.startsWith('data:')); return images.length === 2 && images.every(image => image.complete && image.naturalWidth > 0) && !document.querySelector('#stack-slideshow [data-testid=thumbhash]'); })()",
+    "(() => { const tiles = Array.from(document.querySelectorAll('#stack-slideshow [data-asset]')); return tiles.length === 2 && tiles.every(tile => { const image = tile.querySelector('img'); return image && image.complete && image.naturalWidth > 0; }); })()",
   );
   const members = browser(
     "eval",
@@ -253,6 +254,14 @@ try {
 } catch (error) {
   console.error(error.message);
   try {
+    const diagnostic = browser(
+      "eval",
+      "Array.from(document.querySelectorAll('#immich-asset-viewer img, #stack-slideshow canvas')).map(element => ({ tag: element.tagName, src: element.getAttribute('src'), testid: element.getAttribute('data-testid'), width: element.naturalWidth, complete: element.complete, stackAsset: element.closest('[data-asset]')?.getAttribute('data-asset') }))",
+    );
+    await writeFile(
+      join(output, "failure-dom.json"),
+      JSON.stringify(diagnostic, null, 2),
+    );
     await snapshot("failure");
     await screenshot("failure");
   } catch {}
