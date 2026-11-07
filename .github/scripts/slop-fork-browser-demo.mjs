@@ -217,8 +217,13 @@ try {
       "utf8",
     ),
   );
+  assert.equal(process.env.IMMICH_DEMO_DEFAULT_VERIFIED, "true");
+  const versionResponse = await fetch(`${baseUrl}/api/server/version`);
+  assert.equal(versionResponse.ok, true);
   const report = {
     image: process.env.SLOP_IMAGE,
+    serverVersion: await versionResponse.json(),
+    rawCompanionsEnvironmentAbsent: true,
     imageSourceRevision: imageLabels["org.opencontainers.image.revision"],
     workflowRun: process.env.GITHUB_RUN_ID,
     persistentRestart: true,

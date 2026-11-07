@@ -11,7 +11,7 @@ on:
       image:
         description: Published immutable server image digest
         required: true
-        default: ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b
+        default: ghcr.io/ajnart/immich-slop-fork@sha256:68bce1cc5e7be960d580265f396c53b0e92d1b1f13d4d720fcaf468799ed0856
         type: string
 
 permissions: {}
@@ -28,8 +28,7 @@ jobs:
     permissions:
       contents: read
     env:
-      IMMICH_RAW_COMPANIONS: 'true'
-      SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b' }}
+      SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:68bce1cc5e7be960d580265f396c53b0e92d1b1f13d4d720fcaf468799ed0856' }}
       IMMICH_DEMO_OUTPUT: ${{ github.workspace }}/slop-fork-demo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -54,6 +53,7 @@ jobs:
           docker compose -f .github/slop-fork-smoke.yml pull
           docker image inspect "$SLOP_IMAGE" --format '{{json .Config.Labels}}' > "$RUNNER_TEMP/slop-demo-image.json"
           docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          docker inspect "$(docker compose -f .github/slop-fork-smoke.yml ps -q immich-server)" --format '{{json .Config.Env}}' | jq --exit-status 'all(.[]; startswith("IMMICH_RAW_COMPANIONS=") | not)'
           curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
       - name: Import genuine RAF and JPEG companions
         run: |
@@ -65,7 +65,9 @@ jobs:
         run: |
           docker compose -f .github/slop-fork-smoke.yml down
           docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          docker inspect "$(docker compose -f .github/slop-fork-smoke.yml ps -q immich-server)" --format '{{json .Config.Env}}' | jq --exit-status 'all(.[]; startswith("IMMICH_RAW_COMPANIONS=") | not)'
           curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
+          echo "IMMICH_DEMO_DEFAULT_VERIFIED=true" >> "$GITHUB_ENV"
       - name: Exercise desktop and responsive mobile web with agent-browser
         run: node .github/scripts/slop-fork-browser-demo.mjs
       - name: Publish sanitized evidence
