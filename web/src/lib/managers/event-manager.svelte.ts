@@ -1,25 +1,22 @@
+import type { TimelineAsset } from '#lib/managers/timeline-manager/types.ts';
+import { BaseEventManager } from '#lib/utils/base-event-manager.svelte.ts';
+import type { TreeNode } from '#lib/utils/tree-utils.ts';
 import type {
+  AdminConfigDto,
   AlbumResponseDto,
   AlbumUserRole,
   ApiKeyResponseDto,
   AssetResponseDto,
   IntegrityReport,
   JobCreateDto,
-  LibraryResponseDto,
   LoginResponseDto,
+  PasskeyResponseDto,
   PersonResponseDto,
-  QueueResponseDto,
   ReleaseEventV1,
-  SharedLinkResponseDto,
   StackResponseDto,
-  AdminConfigDto,
   TagResponseDto,
   UserAdminResponseDto,
-  WorkflowResponseDto,
 } from '@immich/sdk';
-import type { TimelineAsset } from '$lib/managers/timeline-manager/types';
-import { BaseEventManager } from '$lib/utils/base-event-manager.svelte';
-import type { TreeNode } from '$lib/utils/tree-utils';
 
 export type Events = {
   AppInit: [];
@@ -34,6 +31,10 @@ export type Events = {
   ApiKeyCreate: [ApiKeyResponseDto];
   ApiKeyUpdate: [ApiKeyResponseDto];
   ApiKeyDelete: [ApiKeyResponseDto];
+
+  PasskeyCreate: [PasskeyResponseDto];
+  PasskeyUpdate: [PasskeyResponseDto];
+  PasskeyDelete: [PasskeyResponseDto];
 
   AssetUpdate: [AssetResponseDto];
   AssetsArchive: [string[]];
@@ -62,12 +63,6 @@ export type Events = {
   BackupDeleted: [{ filename: string }];
   BackupUpload: [{ progress: number; isComplete: boolean }];
 
-  QueueUpdate: [QueueResponseDto];
-
-  SharedLinkCreate: [SharedLinkResponseDto];
-  SharedLinkUpdate: [SharedLinkResponseDto];
-  SharedLinkDelete: [SharedLinkResponseDto];
-
   StackCreate: [StackResponseDto];
   /** Unstacked, with assets to handle */
   StackDelete: [{ id: string; assets: AssetResponseDto[] }];
@@ -80,12 +75,6 @@ export type Events = {
 
   UserPinCodeReset: [];
 
-  UserAdminCreate: [UserAdminResponseDto];
-  UserAdminUpdate: [UserAdminResponseDto];
-  UserAdminRestore: [UserAdminResponseDto];
-  // soft deleted
-  UserAdminDelete: [UserAdminResponseDto];
-  // confirmed permanently deleted from server
   UserAdminDeleted: [{ id: string }];
 
   SessionLocked: [];
@@ -97,14 +86,6 @@ export type Events = {
   IntegrityReportDeleted: [{ type?: IntegrityReport; id?: string }];
 
   JobCreate: [{ dto: JobCreateDto }];
-
-  LibraryCreate: [LibraryResponseDto];
-  LibraryUpdate: [LibraryResponseDto];
-  LibraryDelete: [{ id: string }];
-
-  WorkflowCreate: [WorkflowResponseDto];
-  WorkflowUpdate: [WorkflowResponseDto];
-  WorkflowDelete: [WorkflowResponseDto];
 
   ReleaseEvent: [ReleaseEventV1];
 

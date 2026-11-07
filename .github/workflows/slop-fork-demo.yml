@@ -30,7 +30,6 @@ jobs:
     env:
       IMMICH_RAW_COMPANIONS: 'true'
       SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b' }}
-      IMMICH_SMOKE_STATE_PATH: ${{ runner.temp }}/slop-fork-smoke-state.json
       IMMICH_DEMO_OUTPUT: ${{ github.workspace }}/slop-fork-demo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -40,6 +39,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24.22.1
+      - name: Configure transient demo state
+        run: echo "IMMICH_SMOKE_STATE_PATH=$RUNNER_TEMP/slop-fork-smoke-state.json" >> "$GITHUB_ENV"
       - name: Install browser and capture tools
         run: |
           sudo apt-get update
