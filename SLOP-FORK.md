@@ -7,7 +7,7 @@ Use this as a **same-version server swap**. If your installation is older or new
 ## Quick start
 
 1. Confirm an existing **v3.3.6, Linux amd64** installation and complete the [checkpoint](#checkpoint-before-the-trial), including the original image, database, and media backup.
-2. Copy the immutable image digest from a successful fork CI run into the [trial commands](#try-the-tested-image). The override swaps only the server image and enables `IMMICH_RAW_COMPANIONS=true`.
+2. Run the [trial commands](#try-the-tested-image), which already contain the verified immutable image digest. The override swaps only the server image and enables `IMMICH_RAW_COMPANIONS=true`.
 3. Upload a small matching RAW/JPEG pair in both orders, inspect the stack and original downloads, then keep testing or run the [rollback commands](#roll-back-to-the-exact-original-image).
 
 Matching is deliberately conservative: exactly one RAW and one JPEG (`.jpg`/`.jpeg`) or PNG image must share the filename stem, owner, and library. Uploaded pairs need matching EXIF capture time, camera make, and model; external-library pairs must share a directory and must not have conflicting metadata. Archive visibility and favorite status must also agree, preserving those user choices. Ambiguous matches, edited assets, offline or trashed assets, Live Photos, and incompatible existing stacks are skipped. The rendered image becomes the stack primary, while both originals remain independent assets.
@@ -16,13 +16,15 @@ The RAW asset still owns separate generated thumbnail and preview files, sourced
 
 ## Build and evidence
 
-The unchanged baseline is recorded locally as `slop-checkpoint/v3.3.6`. Its existing media and stack suites passed 218 tests before implementation. The completed experiment passed all 107 server unit-test files locally: 2,403 tests passed and one upstream test remained an expected failure. Database and real-import results must come from the successful CI run linked below; local unit tests alone do not prove those flows work.
+The unchanged baseline is recorded as `slop-checkpoint/v3.3.6`. Its existing media and stack suites passed 218 tests before implementation. [CI run 42318224214](https://github.com/ajnart/immich-slop-fork/actions/runs/42318224214) succeeded for source commit `a1df4629b37a93d772a65bd9e892923d49b0b50f`: 2,411 unit tests passed across 107 files, with one upstream expected failure, and all 800 database tests passed across 69 files. Server build, type checking, formatting, and lint passed.
+
+The published image passed real Fujifilm RAF/JPEG uploads in both orders, rendered-primary selection, unchanged original-download checksums, and independent thumbnails. Deleting the JPEG preserved the RAW original and its thumbnail. Restarting with the feature disabled preserved existing pairs and originals while new imports remained unstacked. The image manifest was independently verified as anonymously pullable and tied to the tested source commit.
 
 The dedicated [Slop fork image workflow](.github/workflows/slop-fork.yml) runs only on this fork and feature branch, after a push or manual dispatch. It uses standard GitHub `ubuntu-24.04` runners, `contents: read`, and `packages: write` for the publishing job. It needs no upstream app credentials or Docker Hub secrets. A push consumes GitHub Actions resources and, on success, publishes a new GHCR package version. It does not deploy anything to your server.
 
 The workflow runs all server unit and database medium tests, builds and checks the server, then builds the complete upstream server Dockerfile, including web UI, CLI, and plugins. It starts the resulting image with disposable PostgreSQL and Valkey containers and checks the API, version, web UI, actual RAW/JPEG uploads in both orders, and original download checksums. It then restarts the same image with the feature disabled, checks existing assets, and verifies fresh pairs stay unstacked before publishing that image. Runtime logs are retained for seven days. The workflow summary is the source of the tested image tag and immutable digest; a prepared workflow is not evidence that a build has passed.
 
-Images are `linux/amd64` only. The package is `ghcr.io/ajnart/immich-slop-fork`, with a unique tag containing `v3.3.6`, the complete source commit, run ID, and attempt. There is no moving `latest` tag. Use the digest from a **successful** run when deploying. GHCR package visibility may initially be private; authenticate Docker with an account allowed to read the package if needed.
+Images are `linux/amd64` only. The public package is `ghcr.io/ajnart/immich-slop-fork`, with a unique tag containing `v3.3.6`, the complete source commit, run ID, and attempt. There is no moving `latest` tag. The verified tag is `v3.3.6-a1df4629b37a93d772a65bd9e892923d49b0b50f-42318224214-1`; the commands below pin its immutable digest. No registry sign-in is required.
 
 ## Checkpoint before the trial
 
@@ -49,10 +51,10 @@ While the server is stopped, take a matching backup or filesystem snapshot of th
 
 ## Try the tested image
 
-Set `SLOP_IMAGE` to the exact `ghcr.io/ajnart/immich-slop-fork@sha256:...` digest from the successful workflow summary, then run:
+Run these commands after completing the checkpoint:
 
 ```bash
-export SLOP_IMAGE='ghcr.io/ajnart/immich-slop-fork@sha256:REPLACE_WITH_SUCCESSFUL_RUN_DIGEST'
+export SLOP_IMAGE='ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b'
 docker pull "$SLOP_IMAGE"
 cat > slop-fork.yml <<EOF_COMPOSE
 services:
@@ -86,3 +88,9 @@ curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping
 ```
 
 An image rollback does not undo application data changes made during the trial, including created stacks or generated thumbnails. You can unstack trial pairs in Immich. To restore the entire pre-trial state, restore the matching database and media backup together using Immich's restore procedure. Do not delete volumes or overwrite database files as part of an ordinary image rollback.
+
+## Design context
+
+The [automatic-stacking discussion](https://github.com/immich-app/immich/discussions/2479#discussioncomment-18055821) covers a much broader feature. Its [maintainer-direction update](https://github.com/immich-app/immich/discussions/2479#discussioncomment-19232700) points toward plugins and workflows, and [metadata duplicate detection #31286](https://github.com/immich-app/immich/pull/31286) was closed. This opt-in fork keeps the experiment limited to RAW/rendered companions and thumbnail processing, using existing stack records without changing duplicate detection or adding schema.
+
+The baseline includes the [primary-selection fix #31380](https://github.com/immich-app/immich/pull/31380). The approach follows [PhotoPrism's rendered-preview preference](https://docs.photoprism.app/user-guide/organize/stacks/) while retaining Immich's independent asset-file ownership, so deleting a companion cannot delete the RAW's generated files. A late companion also refreshes the RAW's search, face, OCR, and client data through the existing job pipeline.
