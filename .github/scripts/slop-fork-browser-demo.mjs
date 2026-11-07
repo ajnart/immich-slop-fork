@@ -43,7 +43,11 @@ async function api(path, token, body) {
 
 async function snapshot(name) {
   const data = browser('snapshot');
-  await writeFile(join(output, `${name}.json`), JSON.stringify(data, null, 2));
+  let text = JSON.stringify(data, null, 2);
+  for (const secret of [state.adminToken, state.pair.token, state.browser.password]) {
+    text = text.replaceAll(secret, '[REDACTED]');
+  }
+  await writeFile(join(output, `${name}.json`), text);
 }
 
 async function screenshot(name) {
@@ -53,9 +57,8 @@ async function screenshot(name) {
 }
 
 function waitForAsset(id) {
-  browser('wait', '--url', `**/photos/${id}`);
   browser('wait', '#immich-asset-viewer');
-  browser('wait', '--fn', `Array.from(document.querySelectorAll('#immich-asset-viewer img')).some(image => image.complete && image.naturalWidth > 0 && image.src.includes('${id}'))`);
+  browser('wait', '--fn', `Array.from(document.querySelectorAll('#immich-asset-viewer img')).some(image => !image.closest('#stack-slideshow') && image.complete && image.naturalWidth > 0 && image.src.includes('${id}'))`);
 }
 
 async function demonstrate(name, width, height) {
@@ -120,6 +123,7 @@ try {
     image: process.env.SLOP_IMAGE,
     workflowRun: process.env.GITHUB_RUN_ID,
     testedAt: new Date().toISOString(),
+    fixture: { source: 'https://raw.pixls.us/getfile.php/3812/nice/Fujifilm%20-%20X100V%20-%2014bit%2014bit%20compressed%20(3%3A2).RAF', sha256: '48f2055ab497c687347eee84103d4f48deb016fff711d2810eaf1317e506f621', license: 'CC0-1.0' },
     browserTool: execFileSync('agent-browser', ['--version'], { encoding: 'utf8' }).trim(),
     scope: 'Real published server image, genuine Fujifilm RAF and embedded JPEG, desktop and responsive mobile web. Native iOS and Android apps are outside this browser demo.',
     checks,

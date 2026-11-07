@@ -9,7 +9,7 @@ import { setTimeout } from 'node:timers/promises';
 const baseUrl = process.env.IMMICH_SMOKE_URL || 'http://127.0.0.1:2283';
 const statePath = process.env.IMMICH_SMOKE_STATE_PATH;
 const disabled = process.argv.includes('--disabled');
-const sourcePath = resolve('e2e/test-assets/formats/raw/Fujifilm/X100V_compressed.RAF');
+const sourcePath = resolve(process.env.IMMICH_SMOKE_RAW_PATH || 'e2e/test-assets/formats/raw/Fujifilm/X100V_compressed.RAF');
 const temporaryPath = await mkdtemp(join(tmpdir(), 'immich-companions-'));
 const password = `Smoke-${randomUUID()}!`;
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
