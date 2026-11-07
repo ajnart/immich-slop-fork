@@ -87,7 +87,7 @@ function waitForAsset(id) {
   browser(
     "wait",
     "--fn",
-    `Array.from(document.querySelectorAll('#immich-asset-viewer img')).some(image => !image.closest('#stack-slideshow') && image.complete && image.naturalWidth > 0 && image.src.includes('${id}'))`,
+    `Array.from(document.querySelectorAll('#immich-asset-viewer img')).some(image => !image.closest('[data-testid=stack-slideshow]') && image.complete && image.naturalWidth > 0 && image.src.includes('${id}'))`,
   );
 }
 
@@ -131,15 +131,15 @@ async function demonstrate(name, width, height) {
   browser("click", `[data-asset="${state.pair.ids.rendered}"]`);
   waitForAsset(state.pair.ids.rendered);
   console.log(`${name}: primary viewer image ready`);
-  browser("wait", "#stack-slideshow");
+  browser("wait", "[data-testid=stack-slideshow]");
   browser(
     "wait",
     "--fn",
-    "(() => { const tiles = Array.from(document.querySelectorAll('#stack-slideshow [data-asset]')); return tiles.length === 2 && tiles.every(tile => { const image = tile.querySelector('img'); return image && image.complete && image.naturalWidth > 0; }); })()",
+    "(() => { const images = Array.from(document.querySelectorAll('[data-testid=stack-slideshow] [data-asset] img')).filter(image => !image.src.startsWith('data:')); return images.length === 2 && images.every(image => image.complete && image.naturalWidth > 0) && !document.querySelector('[data-testid=stack-slideshow] [data-testid=thumbhash]'); })()",
   );
   const members = browser(
     "eval",
-    "document.querySelectorAll('#stack-slideshow [data-asset]').length",
+    "document.querySelectorAll('[data-testid=stack-slideshow] [data-asset]').length",
   ).result;
   assert.equal(members, 2, `${name}: stack must expose both files`);
   await screenshot(`${name}-jpeg-primary`);
@@ -148,8 +148,11 @@ async function demonstrate(name, width, height) {
   await snapshot(`${name}-jpeg-details`);
   await screenshot(`${name}-jpeg-details`);
   browser("find", "role", "button", "click", "--name", "Close", "--exact");
-  browser("wait", "#detail-panel", "--state", "hidden");
-  browser("click", `#stack-slideshow [data-asset="${state.pair.ids.raw}"]`);
+  browser("wait", "[data-testid=detail-panel]", "--state", "hidden");
+  browser(
+    "click",
+    `[data-testid=stack-slideshow] [data-asset="${state.pair.ids.raw}"]`,
+  );
   waitForAsset(state.pair.ids.raw);
   await screenshot(`${name}-raw-companion`);
   browser("find", "role", "button", "click", "--name", "Info", "--exact");
@@ -157,10 +160,10 @@ async function demonstrate(name, width, height) {
   await snapshot(`${name}-raw-details`);
   await screenshot(`${name}-raw-details`);
   browser("find", "role", "button", "click", "--name", "Close", "--exact");
-  browser("wait", "#detail-panel", "--state", "hidden");
+  browser("wait", "[data-testid=detail-panel]", "--state", "hidden");
   browser(
     "click",
-    `#stack-slideshow [data-asset="${state.pair.ids.rendered}"]`,
+    `[data-testid=stack-slideshow] [data-asset="${state.pair.ids.rendered}"]`,
   );
   waitForAsset(state.pair.ids.rendered);
   await screenshot(`${name}-back-to-jpeg`);
@@ -256,7 +259,7 @@ try {
   try {
     const diagnostic = browser(
       "eval",
-      "Array.from(document.querySelectorAll('#immich-asset-viewer img, #stack-slideshow canvas')).map(element => ({ tag: element.tagName, src: element.getAttribute('src'), testid: element.getAttribute('data-testid'), width: element.naturalWidth, complete: element.complete, stackAsset: element.closest('[data-asset]')?.getAttribute('data-asset') }))",
+      "Array.from(document.querySelectorAll('#immich-asset-viewer img, [data-testid=stack-slideshow] canvas')).map(element => ({ tag: element.tagName, src: element.getAttribute('src'), testid: element.getAttribute('data-testid'), width: element.naturalWidth, complete: element.complete, stackAsset: element.closest('[data-asset]')?.getAttribute('data-asset') }))",
     );
     await writeFile(
       join(output, "failure-dom.json"),
