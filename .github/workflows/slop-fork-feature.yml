@@ -143,9 +143,10 @@ jobs:
           ref: ${{ github.sha }}
           path: harness
           persist-credentials: false
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
-            .github/scripts
-            .github/slop-fork-smoke.yml
+            /.github/scripts/
+            /.github/slop-fork-smoke.yml
       - name: Configure transient smoke state
         run: echo "IMMICH_SMOKE_STATE_PATH=$RUNNER_TEMP/slop-feature-state.json" >> "$GITHUB_ENV"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
