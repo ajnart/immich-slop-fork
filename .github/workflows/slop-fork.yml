@@ -26,9 +26,9 @@ jobs:
           submodules: recursive
       - name: Verify baseline and unchanged schema
         run: |
-          git merge-base --is-ancestor 587f549f46f1cd1822a06e16dcccecef04ea4565 HEAD
-          git diff --exit-code 587f549f46f1cd1822a06e16dcccecef04ea4565 -- server/src/schema server/src/migrations
-          test "$(jq -r .version server/package.json)" = 3.3.6
+          git merge-base --is-ancestor 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d HEAD
+          git diff --exit-code 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d -- server/src/schema server/src/migrations
+          test "$(jq -r .version server/package.json)" = 3.4.0-rc.0
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           version: 2026.9.12
@@ -57,7 +57,7 @@ jobs:
       contents: read
       packages: write
     env:
-      SLOP_IMAGE: ghcr.io/ajnart/immich-slop-fork:v3.3.6-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      SLOP_IMAGE: ghcr.io/ajnart/immich-slop-fork:v3.4.0-rc.0-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -65,7 +65,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 24.22.1
+          node-version: 26.13.0
       - name: Install RAW fixture metadata tool
         run: |
           sudo apt-get update
@@ -85,7 +85,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/ajnart/immich-slop-fork
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=v3.3.6-slop-fork
+            org.opencontainers.image.version=v3.4.0-rc.0-slop-fork
           build-args: |
             BUILD_ID=${{ github.run_id }}
             BUILD_IMAGE=${{ env.SLOP_IMAGE }}
@@ -97,7 +97,7 @@ jobs:
         run: |
           docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
           curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
-          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 3 and .patch == 6'
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 4 and .patch == 0'
           curl --fail --silent --show-error http://127.0.0.1:2283/ --output "$RUNNER_TEMP/slop-index.html"
           test -s "$RUNNER_TEMP/slop-index.html"
       - name: Verify RAW companion import and original downloads
@@ -138,4 +138,4 @@ jobs:
           docker push "$SLOP_IMAGE"
           digest_ref=$(docker image inspect "$SLOP_IMAGE" --format '{{index .RepoDigests 0}}')
           test -n "$digest_ref"
-          printf '## Tested slop-fork image\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nPlatform: `linux/amd64`\n\nBaseline: `v3.3.6` (`587f549f46f1cd1822a06e16dcccecef04ea4565`)\n' "$SLOP_IMAGE" "$digest_ref" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Tested slop-fork image\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nPlatform: `linux/amd64`\n\nBaseline: `v3.4.0-rc.0` (`0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d`)\n' "$SLOP_IMAGE" "$digest_ref" >> "$GITHUB_STEP_SUMMARY"
