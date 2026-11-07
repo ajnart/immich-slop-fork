@@ -179,6 +179,8 @@ async function demonstrate(name, width, height) {
   );
   assert.ok(Number(video.format.duration) > 0);
   assert.equal(video.streams[0].codec_name, "h264");
+  assert.equal(video.streams[0].width, width);
+  assert.equal(video.streams[0].height, height);
   checks.push({
     name,
     viewport,
@@ -206,8 +208,15 @@ try {
   browser("wait", "--url", "**/photos");
   await demonstrate("desktop", 1440, 1000);
   await demonstrate("mobile-web", 390, 844);
+  const imageLabels = JSON.parse(
+    await readFile(
+      join(process.env.RUNNER_TEMP, "slop-demo-image.json"),
+      "utf8",
+    ),
+  );
   const report = {
     image: process.env.SLOP_IMAGE,
+    imageSourceRevision: imageLabels["org.opencontainers.image.revision"],
     workflowRun: process.env.GITHUB_RUN_ID,
     persistentRestart: true,
     testedAt: new Date().toISOString(),
