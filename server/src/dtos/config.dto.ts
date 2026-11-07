@@ -383,7 +383,7 @@ const AdminConfigSchemaWithVisibility = z
           .meta({ id: 'AdminConfigGeneratedFullsizeImageDto' }),
         colorspace: ColorspaceSchema,
         extractEmbedded: configBool.describe('Extract embedded'),
-        rawCompanions: configBool.describe('RAW companions'),
+        rawCompanions: configBool,
       })
       .meta({ id: 'AdminConfigImageDto' }),
     newVersionCheck: z
