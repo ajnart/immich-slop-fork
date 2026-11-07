@@ -1,7 +1,7 @@
-import type { JobItem, JobOf } from 'src/types.js';
 import { AssetFileType, Colorspace, JobName, JobStatus, QueueName } from 'src/enum.js';
 import { JobService } from 'src/services/job.service.js';
 import { MediaService } from 'src/services/media.service.js';
+import type { JobItem, JobOf } from 'src/types.js';
 import { AssetFactory } from 'test/factories/asset.factory.js';
 import { personThumbnailStub } from 'test/fixtures/person.stub.js';
 import { getForAsset, getForGenerateThumbnail } from 'test/mappers.js';

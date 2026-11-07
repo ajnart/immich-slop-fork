@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { sql } from 'kysely';
+import { sql, type ExpressionBuilder, type Insertable, type Kysely, type Updateable } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { InjectKysely } from 'nestjs-kysely';
 import { extname } from 'node:path';
-import type { ExpressionBuilder, Insertable, Kysely, Updateable } from 'kysely';
 import { columns } from 'src/database.js';
 import { DummyValue, GenerateSql } from 'src/decorators.js';
 import { DB } from 'src/schema/index.js';
