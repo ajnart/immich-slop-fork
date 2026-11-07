@@ -42,9 +42,9 @@ function browser(...args) {
   return response.data;
 }
 
-async function api(path, token, body) {
+async function api(path, token, body, method = "PUT") {
   const response = await fetch(`${baseUrl}/api${path}`, {
-    method: "PUT",
+    method,
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -89,6 +89,118 @@ function waitForAsset(id) {
     "--fn",
     `Array.from(document.querySelectorAll('#immich-asset-viewer img')).some(image => !image.closest('[data-testid=stack-slideshow]') && image.complete && image.naturalWidth > 0 && image.src.includes('${id}'))`,
   );
+}
+
+function videoMetadata(name, width, height) {
+  const video = JSON.parse(
+    execFileSync(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration:stream=codec_name,width,height",
+        "-of",
+        "json",
+        join(output, `${name}.mp4`),
+      ],
+      { encoding: "utf8" },
+    ),
+  );
+  assert.ok(Number(video.format.duration) > 0);
+  assert.equal(video.streams[0].codec_name, "h264");
+  assert.equal(video.streams[0].width, width);
+  assert.equal(video.streams[0].height, height);
+  return video;
+}
+
+function login(credentials) {
+  browser("open", `${baseUrl}/auth/login`);
+  browser("wait", "#email");
+  browser("fill", "#email", credentials.email);
+  browser("fill", "#password", credentials.password);
+  browser("click", 'button[type="submit"]');
+  browser("wait", "--url", "**/photos");
+}
+
+async function readRawCompanionSetting() {
+  const response = await fetch(`${baseUrl}/api/admin/config`, {
+    headers: { Authorization: `Bearer ${state.adminToken}` },
+    signal: AbortSignal.timeout(30_000),
+  });
+  assert.equal(response.ok, true);
+  return (await response.json()).image.rawCompanions;
+}
+
+function readSettingsToggle() {
+  const result = browser(
+    "eval",
+    "(() => { const label = Array.from(document.querySelectorAll('label')).find(element => element.textContent.trim() === 'Pair RAW companions'); const input = document.getElementById(label?.htmlFor); if (!input) return null; return { id: input.id, checked: input.getAttribute('aria-checked') === 'true', role: input.getAttribute('role') }; })()",
+  ).result;
+  assert.ok(result, "RAW companion setting has no associated input");
+  return result;
+}
+
+function showImageSettings() {
+  browser("find", "placeholder", "Search settings", "fill", "Image", "--exact");
+  browser("wait", "--text", "Pair RAW companions");
+  const toggle = readSettingsToggle();
+  assert.equal(toggle.role, "switch");
+  browser("scrollintoview", `label[for="${toggle.id}"]`);
+  return toggle;
+}
+
+async function demonstrateSettings() {
+  const width = 1440;
+  const height = 1000;
+  browser("set", "viewport", String(width), String(height));
+  assert.equal(await readRawCompanionSetting(), true);
+  login(state.adminBrowser);
+  browser("open", `${baseUrl}/admin/system-settings?isOpen=image`);
+  const toggle = showImageSettings();
+  assert.equal(toggle.checked, true);
+  browser(
+    "record",
+    "start",
+    join(output, "settings.mp4"),
+    "--cursor",
+    "--contact-sheet",
+  );
+  recording = true;
+  await snapshot("settings-default");
+  await screenshot("settings-default");
+  browser("find", "text", "Pair RAW companions", "click", "--exact");
+  assert.equal(readSettingsToggle().checked, false);
+  browser("find", "role", "button", "click", "--name", "Save", "--exact");
+  browser("wait", "--text", "Settings saved");
+  assert.equal(await readRawCompanionSetting(), false);
+  browser("reload");
+  assert.equal(showImageSettings().checked, false);
+  await snapshot("settings-disabled");
+  await screenshot("settings-disabled");
+  browser("find", "text", "Pair RAW companions", "click", "--exact");
+  assert.equal(readSettingsToggle().checked, true);
+  browser("find", "role", "button", "click", "--name", "Save", "--exact");
+  browser("wait", "--text", "Settings saved");
+  assert.equal(await readRawCompanionSetting(), true);
+  browser("reload");
+  assert.equal(showImageSettings().checked, true);
+  await snapshot("settings-enabled");
+  await screenshot("settings");
+  browser("record", "stop");
+  recording = false;
+  const video = videoMetadata("settings", width, height);
+  console.log(
+    "Admin image setting: default on, saved off and on through the UI, both states persist after reload",
+  );
+  browser("close");
+  return {
+    label: "Pair RAW companions",
+    defaultEnabled: true,
+    disabledPersistedAfterReload: true,
+    enabledPersistedAfterReload: true,
+    video,
+  };
 }
 
 async function demonstrate(name, width, height) {
@@ -169,25 +281,7 @@ async function demonstrate(name, width, height) {
   await screenshot(`${name}-back-to-jpeg`);
   browser("record", "stop");
   recording = false;
-  const video = JSON.parse(
-    execFileSync(
-      "ffprobe",
-      [
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration:stream=codec_name,width,height",
-        "-of",
-        "json",
-        join(output, `${name}.mp4`),
-      ],
-      { encoding: "utf8" },
-    ),
-  );
-  assert.ok(Number(video.format.duration) > 0);
-  assert.equal(video.streams[0].codec_name, "h264");
-  assert.equal(video.streams[0].width, width);
-  assert.equal(video.streams[0].height, height);
+  const video = videoMetadata(name, width, height);
   checks.push({
     name,
     viewport,
@@ -207,12 +301,15 @@ try {
     shouldChangePassword: false,
   });
   await api("/users/me/onboarding", state.pair.token, { isOnboarded: true });
-  browser("open", `${baseUrl}/auth/login`);
-  browser("wait", "#email");
-  browser("fill", "#email", state.browser.email);
-  browser("fill", "#password", state.browser.password);
-  browser("click", 'button[type="submit"]');
-  browser("wait", "--url", "**/photos");
+  await api("/users/me/onboarding", state.adminToken, { isOnboarded: true });
+  await api(
+    "/system-metadata/admin-onboarding",
+    state.adminToken,
+    { isOnboarded: true },
+    "POST",
+  );
+  const settings = await demonstrateSettings();
+  login(state.browser);
   await demonstrate("desktop", 1440, 1000);
   await demonstrate("mobile-web", 390, 844);
   const imageLabels = JSON.parse(
@@ -244,13 +341,14 @@ try {
     }).trim(),
     scope:
       "Real published server image, genuine Fujifilm RAF and embedded JPEG, desktop and responsive mobile web. Native iOS and Android apps are outside this browser demo.",
+    settings,
     checks,
   };
   await writeFile(join(output, "report.json"), JSON.stringify(report, null, 2));
   if (process.env.GITHUB_STEP_SUMMARY) {
     await writeFile(
       process.env.GITHUB_STEP_SUMMARY,
-      `Agent-browser demonstrated JPEG-primary RAW companions against ${process.env.SLOP_IMAGE}. Desktop 1440×1000 and responsive mobile web 390×844 passed. Evidence includes screenshots, sanitized accessibility snapshots, H.264 MP4 videos and report.json. Native mobile apps were not exercised.\n`,
+      `Agent-browser demonstrated JPEG-primary RAW companions against ${process.env.SLOP_IMAGE}. Admin settings saved off/on and persisted after reload. Desktop 1440×1000 and responsive mobile web 390×844 passed. Evidence includes screenshots, sanitized accessibility snapshots, H.264 MP4 videos and report.json. Native mobile apps were not exercised.\n`,
       { flag: "a" },
     );
   }

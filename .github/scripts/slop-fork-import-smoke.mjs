@@ -316,6 +316,11 @@ try {
       const remaining = uploaded[1];
       const state = {
         adminToken: firstSession.accessToken,
+        adminBrowser: {
+          email: admin.email,
+          password,
+          userId: firstSession.userId,
+        },
         pair: { token: remaining.token, ids: remaining.ids },
         browser: {
           email: second.email,

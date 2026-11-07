@@ -68,7 +68,7 @@ jobs:
           docker inspect "$(docker compose -f .github/slop-fork-smoke.yml ps -q immich-server)" --format '{{json .Config.Env}}' | jq --exit-status 'all(.[]; startswith("IMMICH_RAW_COMPANIONS=") | not)'
           curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
           echo "IMMICH_DEMO_DEFAULT_VERIFIED=true" >> "$GITHUB_ENV"
-      - name: Exercise desktop and responsive mobile web with agent-browser
+      - name: Exercise saved admin settings, desktop, and responsive mobile web with agent-browser
         run: node .github/scripts/slop-fork-browser-demo.mjs
       - name: Publish sanitized evidence
         if: always()
