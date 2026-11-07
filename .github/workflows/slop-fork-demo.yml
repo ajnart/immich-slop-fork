@@ -11,7 +11,7 @@ on:
       image:
         description: Published immutable server image digest
         required: true
-        default: ghcr.io/ajnart/immich-slop-fork@sha256:68bce1cc5e7be960d580265f396c53b0e92d1b1f13d4d720fcaf468799ed0856
+        default: ghcr.io/ajnart/immich-slop-fork@sha256:ce8687908aeb4ef7185e6a33a8024fbbb476244b49d77bddf997a7bd509c4cda
         type: string
 
 permissions: {}
@@ -28,7 +28,7 @@ jobs:
     permissions:
       contents: read
     env:
-      SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:68bce1cc5e7be960d580265f396c53b0e92d1b1f13d4d720fcaf468799ed0856' }}
+      SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:ce8687908aeb4ef7185e6a33a8024fbbb476244b49d77bddf997a7bd509c4cda' }}
       IMMICH_DEMO_OUTPUT: ${{ github.workspace }}/slop-fork-demo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
