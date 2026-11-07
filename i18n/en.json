@@ -108,6 +108,8 @@
     "image_progressive": "Progressive",
     "image_progressive_description": "Encode JPEG images progressively for gradual loading display. This has no effect on other formats.",
     "image_quality": "Quality",
+    "image_raw_companions": "Pair RAW companions",
+    "image_raw_companions_description": "Automatically stack matching RAW and JPEG/PNG photos and use the rendered photo for RAW previews. Regenerate thumbnails to apply changes to existing assets. Disabling keeps existing stacks.",
     "image_resolution": "Resolution",
     "image_resolution_description": "Higher resolutions can preserve more detail but take longer to encode, have larger file sizes and can reduce app responsiveness.",
     "image_settings": "Image Settings",

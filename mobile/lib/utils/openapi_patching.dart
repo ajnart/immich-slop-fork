@@ -55,6 +55,7 @@ final Map<String, Map<String, Object?>> openApiPatches = {
   'PersonResponseDto': {'otherPeople': const [], 'sharedBy': const [], 'sharedWith': const []},
   'ServerVersionResponseDto': {'featureLevel': 0},
   'WorkflowResponseDto': {'logging': false},
+  'AdminConfigImageDto': {'rawCompanions': true},
   'AdminConfigDto': {
     'passkey': {'enabled': false, 'domain': null, 'additionalDomains': const []},
   },

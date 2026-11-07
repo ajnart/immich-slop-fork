@@ -19365,6 +19365,9 @@
           "preview": {
             "$ref": "#/components/schemas/AdminConfigGeneratedImageDto"
           },
+          "rawCompanions": {
+            "type": "boolean"
+          },
           "thumbnail": {
             "$ref": "#/components/schemas/AdminConfigGeneratedImageDto"
           }
@@ -19374,6 +19377,7 @@
           "extractEmbedded",
           "fullsize",
           "preview",
+          "rawCompanions",
           "thumbnail"
         ],
         "type": "object"

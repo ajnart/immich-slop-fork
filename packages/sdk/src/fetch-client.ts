@@ -138,6 +138,7 @@ export type AdminConfigImageDto = {
     extractEmbedded: boolean;
     fullsize: AdminConfigGeneratedFullsizeImageDto;
     preview: AdminConfigGeneratedImageDto;
+    rawCompanions: boolean;
     thumbnail: AdminConfigGeneratedImageDto;
 };
 export type AdminConfigIntegrityChecksumJobDto = {
