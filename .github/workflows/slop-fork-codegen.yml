@@ -51,7 +51,7 @@ jobs:
       - name: Generate OpenAPI and TypeScript and Dart clients
         run: |
           mise run //:open-api
-          rg --quiet rawCompanions mobile/generated/openapi/lib/model/admin_config_image_dto.dart
+          grep -q rawCompanions mobile/generated/openapi/lib/model/admin_config_image_dto.dart
           cp mobile/generated/openapi/lib/model/admin_config_image_dto.dart "$RUNNER_TEMP/slop-codegen/admin_config_image_dto.dart"
       - name: Export generated files only
         run: |
