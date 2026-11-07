@@ -1,24 +1,32 @@
 # RAW + JPEG companions
 
-Import `DSC0001.RAF` and `DSC0001.JPG` and Immich groups them into one stack, with the JPEG displayed first. PNG companions work too. Both originals remain available. Pairing is automatic; no enable flag or custom client is required.
+Import `DSC0001.RAF` and `DSC0001.JPG` and Immich groups them into one stack, with the JPEG displayed first. PNG companions work too. Both originals remain available. Pairing starts enabled in **Image Settings → Pair RAW companions**. No enable flag or custom client is required.
 
 This fork includes upstream `main` through [`0cb2ab23`](https://github.com/immich-app/immich/commit/0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d), whose server version is **3.4.0-rc.0**. The old fork main was 864 upstream commits behind and has been fast-forwarded. The feature adds **no schema migrations relative to that main commit**. Upstream main itself adds migrations beyond stable v3.3.6: do not treat this image as a migration-free v3.3.6 replacement.
 
+The feature-only change is [fork PR #1](https://github.com/ajnart/immich-slop-fork/pull/1), from `feat/raw-companion-stacking` into `review/upstream-main`. This fork’s `main` already contains an earlier implementation, so the PR uses the clean upstream commit as its review base to show the whole feature. Documentation, demos, and validation workflows remain on `main` and are excluded from that PR.
+
 ## See it working
 
-1. Upload the matching files. The timeline shows one photo for the pair.
+1. Open **Image Settings → Pair RAW companions**. It is on by default. Toggle it and choose **Save** when you want to change automatic pairing.
+
+![Pair RAW companions in Image Settings](assets/raw-companions/settings.png)
+
+Watch the [settings video](assets/raw-companions/settings.mp4). It shows saving the setting off and on, with each choice preserved after reloading the page.
+
+2. Upload the matching files. The timeline shows one photo for the pair.
 
 ![One timeline entry for the RAW and JPEG](assets/raw-companions/desktop-timeline.png)
 
-2. Open the photo. The JPEG is the primary, with both files in the stack strip.
+3. Open the photo. The JPEG is the primary, with both files in the stack strip.
 
 ![JPEG primary with both stack members](assets/raw-companions/desktop-back-to-jpeg.png)
 
-3. Select the RAW in the strip and open Info. Its original filename and dimensions are still available.
+4. Select the RAW in the strip and open Info. Its original filename and dimensions are still available.
 
 ![RAW companion details with its original filename](assets/raw-companions/desktop-raw-details.png)
 
-Watch or download the [14-second desktop video](assets/raw-companions/desktop.mp4) and [12-second phone-sized web video](assets/raw-companions/mobile-web.mp4). [The successful browser run](https://github.com/ajnart/immich-slop-fork/actions/runs/42325661073) used the exact image below, verified the enable flag was absent, and preserved the account and stack across a full Compose restart.
+Watch the [combined walkthrough](assets/raw-companions/walkthrough.mp4) (21.77 seconds), or use the separate [desktop video](assets/raw-companions/desktop.mp4) and [phone-sized web video](assets/raw-companions/mobile-web.mp4). [The successful browser run](https://github.com/ajnart/immich-slop-fork/actions/runs/42331405731) used the exact image below, verified the normal setting starts enabled without an enable flag, and preserved the account and stack across a full Compose recreation.
 
 The walkthrough uses real Fujifilm RAF data and its embedded JPEG in the actual Immich web UI. It opens the JPEG primary, selects the RAW companion, inspects both filenames, and switches back to the JPEG. The browser recording is a real capture, not a rendered mockup. The landscape uses a CC0 sample from [raw.pixls.us](https://raw.pixls.us/); its exact source, checksum, image revision, and test results are recorded in [report.json](assets/raw-companions/report.json).
 
@@ -29,7 +37,7 @@ Use a disposable local instance first. These commands use separate Docker volume
 ```bash
 git clone --depth 1 --branch main https://github.com/ajnart/immich-slop-fork.git
 cd immich-slop-fork
-export SLOP_IMAGE='ghcr.io/ajnart/immich-slop-fork@sha256:68bce1cc5e7be960d580265f396c53b0e92d1b1f13d4d720fcaf468799ed0856'
+export SLOP_IMAGE='ghcr.io/ajnart/immich-slop-fork@sha256:ce8687908aeb4ef7185e6a33a8024fbbb476244b49d77bddf997a7bd509c4cda'
 export SLOP_PORT=2284
 docker compose -p immich-raw-demo -f .github/slop-fork-smoke.yml up -d --wait
 ```
@@ -40,7 +48,7 @@ Open **http://localhost:2284**, create the local account, and upload a matching 
 docker compose -p immich-raw-demo -f .github/slop-fork-smoke.yml down
 ```
 
-The demo Compose file is for localhost testing, not a production installation. Keep your source photos. No registry login is needed for the published image.
+The cloned `main` branch supplies the isolated demo Compose file; the pinned image comes from the reviewed feature commit. The demo is for localhost testing, not a production installation. Keep your source photos. No registry login is needed for the published image.
 
 ## Matching and processing
 
@@ -48,7 +56,7 @@ A pair must have exactly one RAW and one JPEG/PNG with the same case-sensitive f
 
 The JPEG/PNG becomes the primary. Each original keeps its own generated files, so deleting one original cannot remove the other's preview. The RAW thumbnail job uses the rendered companion instead of decoding the RAW. RAW arriving first may still be decoded before its companion exists. This saves RAW decoding work; it does not deduplicate original or thumbnail storage.
 
-Existing pairs are considered when their thumbnails are regenerated. Start with a small selection. Successfully switching a RAW preview refreshes search, faces, OCR, and clients through Immich's job pipeline. Unstacking does not create a permanent exclusion: a later thumbnail reprocessing can pair the files again. To stop automatic pairing and companion-source processing, set `IMMICH_RAW_COMPANIONS=false` on the server and recreate it. Existing stacks and originals remain.
+Existing pairs are considered when their thumbnails are regenerated. Start with a small selection. Successfully switching a RAW preview refreshes search, faces, OCR, and clients through Immich's job pipeline. Unstacking does not create a permanent exclusion: a later thumbnail reprocessing can pair the files again. To stop automatic pairing and companion-source processing, turn off **Image Settings → Pair RAW companions** and choose **Save**. The saved setting applies to subsequent jobs without recreating the server. Existing stacks and originals remain.
 
 ## Mobile
 
@@ -72,21 +80,30 @@ Repository checkpoints:
 
 - `slop-checkpoint/fork-main-before-sync`: original fork main `534b8746`.
 - `slop-checkpoint/upstream-main-0cb2ab23`: exact upstream baseline.
-- `slop-checkpoint/verified-main-b78b2af9`: source of the fully tested, published default-on image.
+- `slop-checkpoint/verified-feature-681024b1`: source of the fully validated image with the normal Image Settings toggle.
+- `slop-checkpoint/verified-main-b78b2af9`: the earlier environment-controlled default-on image, before the normal Image Settings toggle was added.
 - `slop-checkpoint/pre-main-sync`: feature branch before the upstream update.
 - `slop-checkpoint/v3.3.6`: earlier stable baseline. Its [historical instructions and image](https://github.com/ajnart/immich-slop-fork/blob/351e3d5b493ca432f8cbc62c809f1e31b5b4d77b/SLOP-FORK.md) describe the older opt-in build, not the current default-on one.
 
 ## Validation and review
 
-[Image validation run](https://github.com/ajnart/immich-slop-fork/actions/runs/42323369217) tests source `b78b2af9a`. All 111 unit-test files passed: **2,565 tests passed**, one upstream expected failure, and one upstream skipped test. All 71 database-test files passed: **861 tests passed**. Build, type checking, formatting, and lint passed.
+[Successful feature validation run](https://github.com/ajnart/immich-slop-fork/actions/runs/42329212979) checks exact source [`681024b1a`](https://github.com/ajnart/immich-slop-fork/commit/681024b1aee414f8be8450f56b1fb24d9bac6837).
 
-The published image passed real RAF/JPEG imports in both orders, unchanged original-download checksums, independent thumbnail survival after JPEG deletion, and disabled-mode preservation. Upgrading the same seeded database/media from the previous v3.3.6 image to this main-based image also passed with the existing stack and originals preserved.
+| Suite | Files | Passed tests |
+| --- | ---: | ---: |
+| Server unit | 111 | 2,564 |
+| Database | 71 | 861 |
+| Web unit | 55 | 480 |
 
-[The full code review](SLOP-REVIEW.md) records the fixed RAW-only refresh gap, the demo database persistence fix, safeguards, and remaining limits.
+Server build, type checking, formatting, and lint passed. Web TypeScript, formatting, lint, and production build passed; Svelte checking reported zero errors and warnings. Regenerated OpenAPI and TypeScript clients matched the committed files, and Dart client generation passed. The server unit suite retains one upstream expected-failure case and one skipped test; the web suite has no skipped tests.
 
-The [image workflow](.github/workflows/slop-fork.yml) checks that the fork adds no schema changes relative to its upstream baseline, runs server unit/database tests, build, type checking, formatting, and lint, and builds the full image including web, CLI, and plugins. Before publication it tests real RAF/JPEG imports in both orders, original-download checksums, deletion safety, restarting with pairing disabled, and upgrading a seeded v3.3.6 database/media set to the new image. It does not deploy to your server.
+The published Linux amd64 image passed real RAF/JPEG imports in both orders, unchanged original-download checksums, and RAW thumbnail survival after JPEG deletion. Saving **Pair RAW companions** off and restarting preserved the existing stack and originals while fresh imports remained unstacked. Upgrading the earlier fork’s seeded v3.3.6 database and media to the new image preserved the existing stack and originals, applied the new setting’s default, and retained a saved disabled setting across restart. The registry manifest and image configuration were anonymously readable; their source revision and `IMMICH_SOURCE_COMMIT` matched `681024b1a`.
 
-The [browser demo workflow](.github/workflows/slop-fork-demo.yml) uses pinned `agent-browser@0.41.2` and [this JavaScript script](.github/scripts/slop-fork-browser-demo.mjs). It tests the actual published image, records H.264 MP4 videos, captures screenshots and accessibility snapshots, and produces a machine-readable report. Each run uses disposable accounts and storage. Credentials stay in a runner-temporary file and are not uploaded with evidence.
+[The full code review](SLOP-REVIEW.md) records the fixed RAW-only refresh gap, configuration and mobile compatibility checks, demo database persistence, and remaining limits. Against the clean review base, PR #1 changes 17 files: 1,207 added and 17 removed lines, including 916 added lines of tests and fixtures. It contains no demo, documentation, branding, or workflow files.
+
+The [feature validation workflow](.github/workflows/slop-fork-feature.yml) lives on `main` and checks out the exact minimal feature commit for code generation, complete server and web suites, static checks, and the full image build. It verifies that the feature changes no schema, migrations, Dockerfile, or workflow files relative to its clean upstream base. Publication follows runtime checks for import order, original downloads, deletion safety, the saved Image Settings toggle, restart preservation, and an upgrade from the earlier seeded v3.3.6 build. It does not deploy to your server.
+
+The [browser demo workflow](.github/workflows/slop-fork-demo.yml) uses pinned `agent-browser@0.41.2` and [this JavaScript script](.github/scripts/slop-fork-browser-demo.mjs). It runs against the published image, records H.264 MP4 videos, captures screenshots and accessibility snapshots, and produces a machine-readable report. Each run uses disposable accounts and storage. Credential state stays outside the uploaded evidence directory, and snapshots and browser errors redact transient account secrets.
 
 Agent-browser and its global Codex discovery skill can be installed with:
 

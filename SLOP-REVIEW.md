@@ -1,6 +1,17 @@
 # RAW companion code review
 
-Reviewed the fork-specific changes against upstream main `0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d`, including matching, repository transactions, thumbnail ownership, job completion, tests, image publication, and browser evidence. Independent reviews used GPT-6.1 Sol high.
+Reviewed the fork-specific changes against upstream main `0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d`, including matching, repository transactions, thumbnail ownership, job completion, tests, image publication, and browser evidence. Independent reviews used GPT-6.1 Sol high. The feature is reviewed in [fork PR #1](https://github.com/ajnart/immich-slop-fork/pull/1), based on the clean `review/upstream-main` branch because fork `main` already contains an earlier implementation. The minimal PR excludes documentation, demos, branding, and validation workflows.
+
+Final reviewed feature source: [`681024b1a`](https://github.com/ajnart/immich-slop-fork/commit/681024b1aee414f8be8450f56b1fb24d9bac6837). Its complete diff against the clean upstream base is:
+
+| Scope | Files | Added lines | Removed lines |
+| --- | ---: | ---: | ---: |
+| Production, configuration, UI, and mobile compatibility | 7 | 286 | 14 |
+| Tests and fixtures | 8 | 916 | 3 |
+| Generated OpenAPI and TypeScript SDK | 2 | 5 | 0 |
+| **Total** | **17** | **1,207** | **17** |
+
+The generated files came from the API-generation workflow. The final feature diff adds no source comments. `git diff --check` passed, and the schema and migration trees match the upstream base exactly.
 
 ## Fixed finding
 
@@ -15,9 +26,11 @@ Reviewed the fork-specific changes against upstream main `0cb2ab23b8c1669cc0a39e
 - A successful rendered decode precedes new stack creation. Missing or unreadable companions fall back to the RAW original.
 - Final pairing re-reads candidates under the owner lock and checks the expected pair/stack identity. Native manual stack creation uses the same lock. Concurrent uploads cannot create duplicate overlapping stacks.
 - Each original retains independent generated-file ownership. No original paths/checksums or source EXIF dimensions are rewritten. Companion deletion does not delete RAW-owned derivatives.
-- Successful RAW preview changes refresh analysis and clients. Default-on operation and explicit disable behavior have regression coverage.
-- The upstream main merge preserves JPEG XL decoding tiers, JPEG progression settings, video fallback, and OCR search text updates. The fork changes no schema or generated API client relative to the pinned upstream baseline.
-- CI uses a fork/ref guard, read-only source access, and package-write permission only for publication. It publishes a unique image tag only after tests and runtime checks. Browser evidence excludes transient credentials.
+- Successful RAW preview changes refresh analysis and clients. The normal `image.rawCompanions` setting defaults to true. Turning off **Image Settings → Pair RAW companions** persists false through the existing config storage and cache-invalidation paths; subsequent thumbnail jobs read that setting. Default-on and disabled behavior have regression coverage.
+- The upstream main merge preserves JPEG XL decoding tiers, JPEG progression settings, video fallback, and OCR search text updates. The feature changes no schema or migrations relative to the pinned upstream baseline. Its generated API delta adds only the required `AdminConfigImageDto.rawCompanions` boolean in OpenAPI and the TypeScript SDK. The mobile compatibility patch supplies the missing value before generated Dart deserialization when talking to an older server.
+- The main-only CI harness resolves the exact feature commit, verifies the minimal branch boundary, and validates generated files, server, web, and runtime behavior before publishing a unique image tag. Only the image-publishing job receives package-write permission. Browser evidence excludes transient credentials.
+
+The [settings browser run](https://github.com/ajnart/immich-slop-fork/actions/runs/42331405731) exercised the real Image Settings switch and Save button against the published feature image. It checked the default enabled state, saved off, reloaded, and checked both the switch and `GET /api/admin/config`; it then saved on and repeated those checks. The [settings screenshot](assets/raw-companions/settings.png), [settings video](assets/raw-companions/settings.mp4), and [report](assets/raw-companions/report.json) preserve that evidence.
 
 ## Validation exclusions
 
