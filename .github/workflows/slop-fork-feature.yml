@@ -1,0 +1,240 @@
+name: Slop fork minimal feature validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Minimal feature branch or exact source commit
+        required: true
+        default: feat/raw-companion-stacking
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: slop-feature-${{ inputs.source_ref }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    if: github.repository == 'ajnart/immich-slop-fork'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify baseline and minimal branch boundary
+        id: source
+        run: |
+          git merge-base --is-ancestor 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d HEAD
+          git diff --exit-code 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d -- .github server/Dockerfile server/src/schema server/src/migrations
+          test "$(jq -r .version server/package.json)" = 3.4.0-rc.0
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  generated:
+    needs: source
+    permissions:
+      contents: read
+    uses: ./.github/workflows/slop-fork-codegen.yml
+    with:
+      source_ref: ${{ needs.source.outputs.sha }}
+      verify_clean: true
+
+  server:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+          submodules: recursive
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        with:
+          version: 2026.11.3
+          install_args: node pnpm github:extism/cli github:webassembly/binaryen github:extism/js-pdk github:jellyfin/jellyfin-ffmpeg
+      - name: Build plugins and install server dependencies
+        run: |
+          mise run //:plugins
+          mise run //server:install
+      - name: Build and check server
+        run: |
+          validation_status=0
+          for task in build check format lint; do
+            mise run "//server:$task" || validation_status=1
+          done
+          exit "$validation_status"
+      - name: Test complete server unit suite
+        run: mise run //server:test --run --maxWorkers=2
+      - name: Test complete database behavior suite
+        run: mise run //server:test-medium --run
+
+  web:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        with:
+          version: 2026.11.3
+          install_args: node pnpm
+      - name: Install SDK and web dependencies
+        run: |
+          mise run //:sdk:install
+          mise run //:sdk:build
+          mise run //web:install
+      - name: Check complete web source
+        run: |
+          validation_status=0
+          for task in format check-typescript check-svelte lint; do
+            mise run "//web:$task" || validation_status=1
+          done
+          exit "$validation_status"
+      - name: Install browser test runtime
+        run: pnpm --dir web exec playwright install --with-deps chromium
+      - name: Test complete web unit suite
+        run: mise run //web:test --run --maxWorkers=2
+      - name: Build complete web app
+        run: mise run //web:build
+
+  image:
+    needs: [source, generated, server, web]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: source
+    env:
+      SLOP_IMAGE: ghcr.io/ajnart/immich-slop-fork:feature-${{ needs.source.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Check out exact minimal feature source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          path: source
+          persist-credentials: false
+          submodules: recursive
+      - name: Check out main-only validation harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: harness
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/slop-fork-smoke.yml
+      - name: Configure transient smoke state
+        run: echo "IMMICH_SMOKE_STATE_PATH=$RUNNER_TEMP/slop-feature-state.json" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26.13.0
+      - name: Install RAW fixture metadata tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libimage-exiftool-perl
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build exact minimal feature source
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: ./source
+          file: ./source/server/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: ${{ env.SLOP_IMAGE }}
+          cache-from: type=gha,scope=slop-fork-amd64
+          cache-to: type=gha,mode=max,scope=slop-fork-amd64
+          labels: |
+            org.opencontainers.image.source=https://github.com/ajnart/immich-slop-fork
+            org.opencontainers.image.revision=${{ needs.source.outputs.sha }}
+            org.opencontainers.image.version=v3.4.0-rc.0-raw-companions
+          build-args: |
+            BUILD_ID=${{ github.run_id }}
+            BUILD_IMAGE=${{ env.SLOP_IMAGE }}
+            BUILD_SOURCE_REF=${{ inputs.source_ref }}
+            BUILD_SOURCE_COMMIT=${{ needs.source.outputs.sha }}
+      - name: Start disposable stack and verify runtime
+        run: |
+          docker compose -f ../harness/.github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          docker inspect "$(docker compose -f ../harness/.github/slop-fork-smoke.yml ps -q immich-server)" --format '{{json .Config.Env}}' | jq --exit-status 'all(.[]; startswith("IMMICH_RAW_COMPANIONS=") | not)'
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 4 and .patch == 0'
+          curl --fail --silent --show-error http://127.0.0.1:2283/ --output "$RUNNER_TEMP/slop-feature-index.html"
+          test -s "$RUNNER_TEMP/slop-feature-index.html"
+      - name: Verify default setting and RAW companion imports
+        run: |
+          node ../harness/.github/scripts/slop-fork-import-smoke.mjs
+          node ../harness/.github/scripts/slop-fork-settings.mjs --verify-default
+          docker compose -f ../harness/.github/slop-fork-smoke.yml logs --no-color > slop-feature-enabled.log
+      - name: Disable normal image setting and verify restart preservation
+        run: |
+          node ../harness/.github/scripts/slop-fork-settings.mjs --disable
+          docker compose -f ../harness/.github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
+          node ../harness/.github/scripts/slop-fork-settings.mjs --verify-disabled
+          node ../harness/.github/scripts/slop-fork-import-smoke.mjs --disabled
+      - name: Verify prior library upgrade and configuration default
+        run: |
+          docker compose -f ../harness/.github/slop-fork-smoke.yml down --volumes --remove-orphans
+          export IMMICH_SMOKE_STATE_PATH="$RUNNER_TEMP/slop-feature-upgrade-state.json"
+          SLOP_IMAGE=ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b IMMICH_RAW_COMPANIONS=true docker compose -f ../harness/.github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 3 and .patch == 6'
+          node ../harness/.github/scripts/slop-fork-import-smoke.mjs
+          docker compose -f ../harness/.github/slop-fork-smoke.yml logs --no-color > slop-feature-upgrade-before.log
+          docker compose -f ../harness/.github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
+          node ../harness/.github/scripts/slop-fork-settings.mjs --verify-default
+          node ../harness/.github/scripts/slop-fork-settings.mjs --disable
+          docker compose -f ../harness/.github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
+          node ../harness/.github/scripts/slop-fork-settings.mjs --verify-disabled
+          node ../harness/.github/scripts/slop-fork-import-smoke.mjs --disabled
+      - name: Capture container logs
+        if: always()
+        run: docker compose -f ../harness/.github/slop-fork-smoke.yml logs --no-color > slop-feature-smoke.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: slop-feature-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            source/slop-feature-enabled.log
+            source/slop-feature-smoke.log
+            source/slop-feature-upgrade-before.log
+          retention-days: 7
+      - name: Remove disposable stack
+        if: always()
+        run: |
+          rm -f "$IMMICH_SMOKE_STATE_PATH" "$RUNNER_TEMP/slop-feature-upgrade-state.json"
+          docker compose -f ../harness/.github/slop-fork-smoke.yml down --volumes --remove-orphans
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested feature image once
+        env:
+          SOURCE_COMMIT: ${{ needs.source.outputs.sha }}
+        run: |
+          if docker manifest inspect "$SLOP_IMAGE" > /dev/null 2>&1; then
+            echo 'Refusing to replace an existing image tag.' >&2
+            exit 1
+          fi
+          docker push "$SLOP_IMAGE"
+          digest_ref=$(docker image inspect "$SLOP_IMAGE" --format '{{index .RepoDigests 0}}')
+          test -n "$digest_ref"
+          printf '## Tested minimal feature image\n\nSource: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n' "$SOURCE_COMMIT" "$SLOP_IMAGE" "$digest_ref" >> "$GITHUB_STEP_SUMMARY"
