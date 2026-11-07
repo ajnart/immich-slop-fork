@@ -256,7 +256,10 @@ export class MediaService extends BaseService {
           await this.eventRepository.emit('StackCreate', { stackId: companion.stackId, userId: companion.ownerId });
         }
         if (companion?.renderedId === id) {
-          await this.jobRepository.queue({ name: JobName.AssetGenerateThumbnails, data: { id: companion.rawId } });
+          await this.jobRepository.queue({
+            name: JobName.AssetGenerateThumbnails,
+            data: { id: companion.rawId, notify: true },
+          });
         }
       } catch (error) {
         this.logger.warn(`Could not stack RAW companions for asset ${id}: ${error}`);

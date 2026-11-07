@@ -136,7 +136,10 @@ describe('RAW companion thumbnail processing', () => {
 
   it('queues RAW regeneration after a rendered companion succeeds', async () => {
     await expect(sut.handleGenerateThumbnails({ id: rendered.id })).resolves.toBe(JobStatus.Success);
-    expect(mocks.job.queue).toHaveBeenCalledWith({ name: JobName.AssetGenerateThumbnails, data: { id: raw.id } });
+    expect(mocks.job.queue).toHaveBeenCalledWith({
+      name: JobName.AssetGenerateThumbnails,
+      data: { id: raw.id, notify: true },
+    });
     expect(mocks.media.decodeImage).toHaveBeenCalledWith(rendered.originalPath, expect.any(Object));
   });
 
@@ -174,6 +177,9 @@ describe('RAW companion thumbnail processing', () => {
   it('does not queue RAW regeneration when rendered generation fails', async () => {
     mocks.media.decodeImage.mockRejectedValue(new Error('invalid rendered image'));
     await expect(sut.handleGenerateThumbnails({ id: rendered.id })).rejects.toThrow('invalid rendered image');
-    expect(mocks.job.queue).not.toHaveBeenCalledWith({ name: JobName.AssetGenerateThumbnails, data: { id: raw.id } });
+    expect(mocks.job.queue).not.toHaveBeenCalledWith({
+      name: JobName.AssetGenerateThumbnails,
+      data: { id: raw.id, notify: true },
+    });
   });
 });
