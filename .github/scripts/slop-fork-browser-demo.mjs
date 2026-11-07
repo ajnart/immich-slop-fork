@@ -74,6 +74,9 @@ async function snapshot(name) {
 }
 
 async function screenshot(name) {
+  if (recording) {
+    browser("wait", "1700");
+  }
   const path = join(output, `${name}.png`);
   browser("screenshot", path);
   assert.ok((await stat(path)).size > 1000, `Empty screenshot ${name}`);
