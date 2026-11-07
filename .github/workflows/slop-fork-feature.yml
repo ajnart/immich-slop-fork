@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      statuses: write
     outputs:
       sha: ${{ steps.source.outputs.sha }}
     steps:
@@ -31,11 +32,15 @@ jobs:
           fetch-depth: 0
       - name: Verify baseline and minimal branch boundary
         id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git merge-base --is-ancestor 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d HEAD
           git diff --exit-code 0cb2ab23b8c1669cc0a39e2247c62bdaceb0150d -- .github server/Dockerfile server/src/schema server/src/migrations
           test "$(jq -r .version server/package.json)" = 3.4.0-rc.0
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          source_commit=$(git rev-parse HEAD)
+          echo "sha=$source_commit" >> "$GITHUB_OUTPUT"
+          gh api --silent "repos/$GITHUB_REPOSITORY/statuses/$source_commit" -f state=pending -f context=raw-companions/validation -f description='Full minimal feature validation is running' -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   generated:
     needs: source
@@ -238,3 +243,27 @@ jobs:
           digest_ref=$(docker image inspect "$SLOP_IMAGE" --format '{{index .RepoDigests 0}}')
           test -n "$digest_ref"
           printf '## Tested minimal feature image\n\nSource: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n' "$SOURCE_COMMIT" "$SLOP_IMAGE" "$digest_ref" >> "$GITHUB_STEP_SUMMARY"
+
+  report:
+    needs: [source, generated, server, web, image]
+    if: always() && needs.source.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Attach exact-source validation result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ needs.source.outputs.sha }}
+          GENERATED_RESULT: ${{ needs.generated.result }}
+          SERVER_RESULT: ${{ needs.server.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+        run: |
+          state=failure
+          description='Minimal feature validation failed or was cancelled'
+          if [ "$GENERATED_RESULT" = success ] && [ "$SERVER_RESULT" = success ] && [ "$WEB_RESULT" = success ] && [ "$IMAGE_RESULT" = success ]; then
+            state=success
+            description='Generated clients, server, web, image and runtime checks passed'
+          fi
+          gh api --silent "repos/$GITHUB_REPOSITORY/statuses/$SOURCE_COMMIT" -f state="$state" -f context=raw-companions/validation -f description="$description" -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

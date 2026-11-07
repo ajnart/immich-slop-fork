@@ -49,12 +49,15 @@ jobs:
           version: 2026.11.3
           install_args: node pnpm java npm:oazapfts npm:@openapitools/openapi-generator-cli github:extism/cli github:webassembly/binaryen github:extism/js-pdk
       - name: Generate OpenAPI and TypeScript and Dart clients
-        run: mise run //:open-api
+        run: |
+          mise run //:open-api
+          rg --quiet rawCompanions mobile/generated/openapi/lib/model/admin_config_image_dto.dart
+          cp mobile/generated/openapi/lib/model/admin_config_image_dto.dart "$RUNNER_TEMP/slop-codegen/admin_config_image_dto.dart"
       - name: Export generated files only
         run: |
-          git add -N -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi
-          git diff --binary -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi > "$RUNNER_TEMP/slop-codegen/generated.patch"
-          git diff --stat -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi > "$RUNNER_TEMP/slop-codegen/changes.txt"
+          git add -N -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts
+          git diff --binary -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts > "$RUNNER_TEMP/slop-codegen/generated.patch"
+          git diff --stat -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts > "$RUNNER_TEMP/slop-codegen/changes.txt"
           cat "$RUNNER_TEMP/slop-codegen/changes.txt"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -63,4 +66,4 @@ jobs:
           retention-days: 7
       - name: Verify generated files are current
         if: inputs.verify_clean
-        run: git diff --exit-code -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts mobile/generated/openapi
+        run: git diff --exit-code -- open-api/immich-openapi-specs.json packages/sdk/src/fetch-client.ts
