@@ -184,6 +184,7 @@ async function demonstrateSettings() {
   assert.equal(await readRawCompanionSetting(), false);
   browser("reload");
   assert.equal(showImageSettings().checked, false);
+  assert.equal(await readRawCompanionSetting(), false);
   await snapshot("settings-disabled");
   await screenshot("settings-disabled");
   browser("find", "text", "Pair RAW companions", "click", "--exact");
@@ -193,6 +194,7 @@ async function demonstrateSettings() {
   assert.equal(await readRawCompanionSetting(), true);
   browser("reload");
   assert.equal(showImageSettings().checked, true);
+  assert.equal(await readRawCompanionSetting(), true);
   await snapshot("settings-enabled");
   await screenshot("settings");
   browser("record", "stop");
