@@ -13,6 +13,21 @@ const checks = [];
 let recording = false;
 await mkdir(output, { recursive: true });
 
+function sanitize(value) {
+  let text = String(value);
+  for (const secret of [
+    state.adminToken,
+    state.pair.token,
+    state.browser.password,
+    state.adminBrowser?.password,
+  ]) {
+    if (secret) {
+      text = text.replaceAll(secret, "[REDACTED]");
+    }
+  }
+  return text;
+}
+
 function browser(...args) {
   let result;
   try {
@@ -28,9 +43,7 @@ function browser(...args) {
       },
     );
   } catch (error) {
-    const detail = String(
-      error.stdout || error.stderr || error.message,
-    ).replaceAll(state.browser.password, "[REDACTED]");
+    const detail = sanitize(error.stdout || error.stderr || error.message);
     throw new Error(`agent-browser ${args[0]} failed: ${detail}`);
   }
   const response = JSON.parse(result);
@@ -62,14 +75,7 @@ async function api(path, token, body, method = "PUT") {
 
 async function snapshot(name) {
   const data = browser("snapshot");
-  let text = JSON.stringify(data, null, 2);
-  for (const secret of [
-    state.adminToken,
-    state.pair.token,
-    state.browser.password,
-  ]) {
-    text = text.replaceAll(secret, "[REDACTED]");
-  }
+  const text = sanitize(JSON.stringify(data, null, 2));
   await writeFile(join(output, `${name}.json`), text);
 }
 
@@ -363,7 +369,7 @@ try {
     );
     await writeFile(
       join(output, "failure-dom.json"),
-      JSON.stringify(diagnostic, null, 2),
+      sanitize(JSON.stringify(diagnostic, null, 2)),
     );
     await snapshot("failure");
     await screenshot("failure");
