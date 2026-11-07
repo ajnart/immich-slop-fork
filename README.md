@@ -1,3 +1,13 @@
+## RAW + JPEG companion fork
+
+Matching RAW and JPEG/PNG files automatically form one stack with the rendered image first. Both originals are preserved.
+
+[Try it, watch the demos, and see screenshots](SLOP-FORK.md) · [Code review and safeguards](SLOP-REVIEW.md)
+
+This fork tracks upstream main. Read the guide’s version and rollback notes before replacing an existing installation.
+
+---
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>
