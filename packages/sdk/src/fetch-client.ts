@@ -138,7 +138,6 @@ export type AdminConfigImageDto = {
     extractEmbedded: boolean;
     fullsize: AdminConfigGeneratedFullsizeImageDto;
     preview: AdminConfigGeneratedImageDto;
-    /** RAW companions */
     rawCompanions: boolean;
     thumbnail: AdminConfigGeneratedImageDto;
 };

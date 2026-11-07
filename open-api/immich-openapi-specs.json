@@ -19366,7 +19366,6 @@
             "$ref": "#/components/schemas/AdminConfigGeneratedImageDto"
           },
           "rawCompanions": {
-            "description": "RAW companions",
             "type": "boolean"
           },
           "thumbnail": {
