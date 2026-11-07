@@ -1924,7 +1924,7 @@ describe(MediaService.name, () => {
     it('should use embedded preview if enabled and raw image', async () => {
       const person = PersonFactory.create();
 
-      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
+      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true, rawCompanions: false } });
       mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue(personThumbnailStub.rawEmbeddedThumbnail);
       mocks.person.update.mockResolvedValue(person);
       mocks.media.generateThumbnail.mockResolvedValue();
@@ -1991,7 +1991,7 @@ describe(MediaService.name, () => {
     it('should not use embedded preview if enabled and raw image if not exists', async () => {
       const person = PersonFactory.create();
 
-      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
+      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true, rawCompanions: false } });
       mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue(personThumbnailStub.rawEmbeddedThumbnail);
       mocks.media.generateThumbnail.mockResolvedValue();
       const data = Buffer.from('');
@@ -2014,7 +2014,7 @@ describe(MediaService.name, () => {
     it('should not use embedded preview if enabled and raw image if low resolution', async () => {
       const person = PersonFactory.create();
 
-      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true } });
+      mocks.systemMetadata.get.mockResolvedValue({ image: { extractEmbedded: true, rawCompanions: false } });
       mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue(personThumbnailStub.rawEmbeddedThumbnail);
       mocks.media.generateThumbnail.mockResolvedValue();
       const extracted = Buffer.from('');

@@ -254,6 +254,7 @@ const adminConfig = (overrides: Partial<ResponseOf<'getAdminConfig'>> = {}): Res
     preview: { format: ImageFormat.Jpeg, size: 1440, quality: 80, progressive: false },
     colorspace: Colorspace.P3,
     extractEmbedded: false,
+    rawCompanions: true,
     fullsize: { enabled: false, format: ImageFormat.Jpeg, quality: 80, progressive: false },
   },
   newVersionCheck: { enabled: true, channel: ReleaseChannel.Stable },

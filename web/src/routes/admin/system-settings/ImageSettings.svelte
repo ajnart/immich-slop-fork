@@ -212,6 +212,17 @@
 
         <div class="mt-4">
           <SettingSwitch
+            title={$t('admin.image_raw_companions')}
+            subtitle={$t('admin.image_raw_companions_description')}
+            checked={configToEdit.image.rawCompanions}
+            onToggle={(isChecked) => (configToEdit.image.rawCompanions = isChecked)}
+            isEdited={configToEdit.image.rawCompanions !== config.image.rawCompanions}
+            {disabled}
+          />
+        </div>
+
+        <div class="mt-4">
+          <SettingSwitch
             title={$t('admin.image_prefer_embedded_preview')}
             subtitle={$t('admin.image_prefer_embedded_preview_setting_description')}
             checked={configToEdit.image.extractEmbedded}
