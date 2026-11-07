@@ -1,0 +1,67 @@
+name: Slop fork browser demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Published immutable server image digest
+        required: true
+        default: ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: slop-fork-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  browser-demo:
+    if: github.repository == 'ajnart/immich-slop-fork'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      SLOP_IMAGE: ${{ inputs.image }}
+      IMMICH_SMOKE_STATE_PATH: ${{ runner.temp }}/slop-fork-smoke-state.json
+      IMMICH_DEMO_OUTPUT: ${{ github.workspace }}/slop-fork-demo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.22.1
+      - name: Install browser and capture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libimage-exiftool-perl ffmpeg
+          npm install --global agent-browser@0.41.2
+          agent-browser install --with-deps
+          agent-browser --version
+      - name: Pull published image and start disposable stack
+        run: |
+          [[ "$SLOP_IMAGE" =~ ^ghcr.io/ajnart/immich-slop-fork@sha256:[a-f0-9]{64}$ ]]
+          docker compose -f .github/slop-fork-smoke.yml pull
+          docker image inspect "$SLOP_IMAGE" --format '{{json .Config.Labels}}' > "$RUNNER_TEMP/slop-demo-image.json"
+          docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/ping | jq -e '.res == "pong"'
+      - name: Import genuine RAF and JPEG companions
+        run: node .github/scripts/slop-fork-import-smoke.mjs
+      - name: Exercise desktop and responsive mobile web with agent-browser
+        run: node .github/scripts/slop-fork-browser-demo.mjs
+      - name: Publish sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: slop-fork-browser-demo-${{ github.run_id }}-${{ github.run_attempt }}
+          path: slop-fork-demo/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Remove credentials and disposable stack
+        if: always()
+        run: |
+          rm -f "$IMMICH_SMOKE_STATE_PATH"
+          docker compose -f .github/slop-fork-smoke.yml down --volumes --remove-orphans

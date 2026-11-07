@@ -202,6 +202,7 @@ try {
       const state = {
         adminToken: firstSession.accessToken,
         pair: { token: remaining.token, ids: remaining.ids },
+        browser: { email: second.email, password, userId: secondSession.userId },
         assets: [
           { token: first.token, id: first.ids.raw, checksum: checksums.raw },
           { token: remaining.token, id: remaining.ids.raw, checksum: checksums.raw },
