@@ -128,6 +128,11 @@ async function demonstrate(name, width, height) {
   browser("click", `[data-asset="${state.pair.ids.rendered}"]`);
   waitForAsset(state.pair.ids.rendered);
   browser("wait", "#stack-slideshow");
+  browser(
+    "wait",
+    "--fn",
+    "(() => { const images = Array.from(document.querySelectorAll('#stack-slideshow [data-asset] img')).filter(image => !image.src.startsWith('data:')); return images.length === 2 && images.every(image => image.complete && image.naturalWidth > 0) && !document.querySelector('#stack-slideshow [data-testid=thumbhash]'); })()",
+  );
   const members = browser(
     "eval",
     "document.querySelectorAll('#stack-slideshow [data-asset]').length",
