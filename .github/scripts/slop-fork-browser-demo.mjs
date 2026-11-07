@@ -150,6 +150,7 @@ function readSettingsToggle() {
 }
 
 function showImageSettings() {
+  browser("wait", 'input[placeholder="Search settings"]');
   browser("find", "placeholder", "Search settings", "fill", "Image", "--exact");
   browser("wait", "--text", "Pair RAW companions");
   const toggle = readSettingsToggle();
