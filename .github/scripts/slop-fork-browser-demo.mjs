@@ -21,8 +21,9 @@ function browser(...args) {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, AGENT_BROWSER_DEFAULT_TIMEOUT: '45000' },
     });
-  } catch {
-    throw new Error(`agent-browser ${args[0]} failed`);
+  } catch (error) {
+    const detail = String(error.stderr || error.message).replaceAll(state.browser.password, '[REDACTED]');
+    throw new Error(`agent-browser ${args[0]} failed: ${detail}`);
   }
   const response = JSON.parse(result);
   assert.equal(response.success, true, `agent-browser ${args[0]} did not succeed`);

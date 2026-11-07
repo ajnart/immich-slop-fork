@@ -1,6 +1,11 @@
 name: Slop fork browser demo
 
 on:
+  push:
+    branches: ['slop-fork/raw-companions']
+    paths:
+      - '.github/workflows/slop-fork-demo.yml'
+      - '.github/scripts/slop-fork-browser-demo.mjs'
   workflow_dispatch:
     inputs:
       image:
@@ -23,7 +28,8 @@ jobs:
     permissions:
       contents: read
     env:
-      SLOP_IMAGE: ${{ inputs.image }}
+      IMMICH_RAW_COMPANIONS: 'true'
+      SLOP_IMAGE: ${{ inputs.image || 'ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b' }}
       IMMICH_SMOKE_STATE_PATH: ${{ runner.temp }}/slop-fork-smoke-state.json
       IMMICH_DEMO_OUTPUT: ${{ github.workspace }}/slop-fork-demo
     steps:
