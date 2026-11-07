@@ -4,7 +4,7 @@ import { JobService } from 'src/services/job.service.js';
 import { MediaService } from 'src/services/media.service.js';
 import { AssetFactory } from 'test/factories/asset.factory.js';
 import { personThumbnailStub } from 'test/fixtures/person.stub.js';
-import { getForGenerateThumbnail } from 'test/mappers.js';
+import { getForAsset, getForGenerateThumbnail } from 'test/mappers.js';
 import { newUuid } from 'test/small.factory.js';
 import { ServiceMocks, newTestService } from 'test/utils.js';
 
@@ -155,8 +155,9 @@ describe('RAW companion thumbnail processing', () => {
         if (item.name === JobName.AssetGenerateThumbnails) {
           return sut.handleGenerateThumbnails(item.data);
         }
+        return JobStatus.Skipped;
       });
-      jobMocks.asset.getByIdsWithAllRelationsButStacks.mockResolvedValue([raw]);
+      jobMocks.asset.getByIdsWithAllRelationsButStacks.mockResolvedValue([getForAsset(raw)]);
 
       await jobService.onJobRun(QueueName.ThumbnailGeneration, job);
 

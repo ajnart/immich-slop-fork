@@ -110,6 +110,17 @@ jobs:
           IMMICH_RAW_COMPANIONS=false docker compose -f .github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
           export IMMICH_SMOKE_STATE_PATH="$RUNNER_TEMP/slop-fork-smoke-state.json"
           node .github/scripts/slop-fork-import-smoke.mjs --disabled
+      - name: Verify upgrade preserves existing library and disabled pairing
+        run: |
+          docker compose -f .github/slop-fork-smoke.yml down --volumes --remove-orphans
+          export IMMICH_SMOKE_STATE_PATH="$RUNNER_TEMP/slop-fork-upgrade-state.json"
+          SLOP_IMAGE=ghcr.io/ajnart/immich-slop-fork@sha256:5642cb43e61bf4e28dacd683fec17ce729029206d69ee2b3a6e059acfb730c8b IMMICH_RAW_COMPANIONS=true docker compose -f .github/slop-fork-smoke.yml up --detach --wait --wait-timeout 300
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 3 and .patch == 6'
+          node .github/scripts/slop-fork-import-smoke.mjs
+          docker compose -f .github/slop-fork-smoke.yml logs --no-color > slop-fork-upgrade-before.log
+          IMMICH_RAW_COMPANIONS=false docker compose -f .github/slop-fork-smoke.yml up --detach --no-deps --force-recreate --wait --wait-timeout 300 immich-server
+          curl --fail --silent --show-error http://127.0.0.1:2283/api/server/version | jq -e '.major == 3 and .minor == 4 and .patch == 0'
+          node .github/scripts/slop-fork-import-smoke.mjs --disabled
       - name: Capture container logs
         if: always()
         run: docker compose -f .github/slop-fork-smoke.yml logs --no-color > slop-fork-smoke.log
@@ -120,6 +131,7 @@ jobs:
           path: |
             slop-fork-enabled.log
             slop-fork-smoke.log
+            slop-fork-upgrade-before.log
           retention-days: 7
       - name: Remove disposable stack
         if: always()
