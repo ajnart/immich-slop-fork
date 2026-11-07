@@ -99,7 +99,7 @@ function videoMetadata(name, width, height) {
         "-v",
         "error",
         "-show_entries",
-        "format=duration:stream=codec_name,width,height",
+        "format=duration:stream=codec_name,width,height,r_frame_rate,pix_fmt",
         "-of",
         "json",
         join(output, `${name}.mp4`),
@@ -111,6 +111,8 @@ function videoMetadata(name, width, height) {
   assert.equal(video.streams[0].codec_name, "h264");
   assert.equal(video.streams[0].width, width);
   assert.equal(video.streams[0].height, height);
+  assert.equal(video.streams[0].r_frame_rate, "30/1");
+  assert.equal(video.streams[0].pix_fmt, "yuv420p");
   return video;
 }
 
