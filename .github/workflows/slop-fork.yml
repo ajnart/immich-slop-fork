@@ -38,16 +38,21 @@ jobs:
         run: |
           mise run //:plugins
           mise run //server:install
+      - name: Build and check server
+        run: |
+          validation_status=0
+          for task in build check format lint; do
+            mise run "//server:$task" || validation_status=1
+          done
+          if [ "$validation_status" -ne 0 ]; then
+            mise run //server:format-fix
+            git diff -- server
+          fi
+          exit "$validation_status"
       - name: Test server
         run: mise run //server:test --run --maxWorkers=2
       - name: Test database behavior
         run: mise run //server:test-medium --run
-      - name: Build and check server
-        run: |
-          mise run //server:build
-          mise run //server:check
-          mise run //server:format
-          mise run //server:lint
 
   image:
     needs: test

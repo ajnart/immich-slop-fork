@@ -157,7 +157,7 @@ describe('RAW companion thumbnail processing', () => {
         }
         return JobStatus.Skipped;
       });
-      jobMocks.asset.getByIdsWithAllRelationsButStacks.mockResolvedValue([getForAsset(raw)]);
+      jobMocks.asset.getByIdsWithAllRelationsButStacks.mockResolvedValue([{ ...getForAsset(raw), faces: [] }]);
 
       await jobService.onJobRun(QueueName.ThumbnailGeneration, job);
 
