@@ -3,7 +3,7 @@ name: Slop fork image
 on:
   workflow_dispatch:
   push:
-    branches: ['slop-fork/raw-companions']
+    branches: ['main', 'slop-fork/raw-companions']
 
 permissions: {}
 
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    if: github.repository == 'ajnart/immich-slop-fork' && github.ref == 'refs/heads/slop-fork/raw-companions'
+    if: github.repository == 'ajnart/immich-slop-fork' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/slop-fork/raw-companions')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -31,7 +31,7 @@ jobs:
           test "$(jq -r .version server/package.json)" = 3.4.0-rc.0
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
-          version: 2026.9.12
+          version: 2026.11.3
           monorepo: false
           install_args: node pnpm github:extism/cli github:webassembly/binaryen github:extism/js-pdk github:jellyfin/jellyfin-ffmpeg
       - name: Build plugins and install server dependencies

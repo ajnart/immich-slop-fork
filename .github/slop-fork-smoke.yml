@@ -14,7 +14,7 @@ services:
     volumes:
       - smoke-media:/data
     ports:
-      - '127.0.0.1:2283:2283'
+      - '127.0.0.1:${SLOP_PORT:-2283}:2283'
     depends_on:
       database:
         condition: service_healthy
